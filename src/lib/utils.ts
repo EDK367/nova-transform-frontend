@@ -6,10 +6,10 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(amount: number | undefined | null): string {
-  if (amount === undefined || amount === null || isNaN(amount)) return '$0.00';
-  return new Intl.NumberFormat('es-MX', {
+  if (amount === undefined || amount === null || isNaN(amount)) return 'Q0.00';
+  return new Intl.NumberFormat('es-GT', {
     style: 'currency',
-    currency: 'MXN',
+    currency: 'GTQ',
   }).format(amount);
 }
 

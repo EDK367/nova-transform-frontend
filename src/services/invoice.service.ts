@@ -54,6 +54,13 @@ export const invoiceService = {
     return response.data.data;
   },
 
+  downloadPdf: async (id: number): Promise<Blob> => {
+    const response = await api.get(`/api/v1/invoices/${id}/pdf`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
   // Payment Receipts
   getReceipts: async (params?: {
     page?: number;

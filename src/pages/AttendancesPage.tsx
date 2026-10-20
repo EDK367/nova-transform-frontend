@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { attendanceService } from '@/services/attendance.service';
+import { reportService } from '@/services/report.service';
 import { memberService } from '@/services/member.service';
 import { AttendanceResponse, CreateAttendanceRequest } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -28,6 +29,7 @@ import {
   Calendar,
   Building2,
   CheckCircle,
+  Download,
 } from 'lucide-react';
 
 const checkInSchema = z.object({
@@ -130,6 +132,18 @@ export const AttendancesPage: React.FC = () => {
     checkOutMutation.mutate({ id: att.id, exitTime: curTime });
   };
 
+  const handleDownloadReportPdf = async () => {
+    try {
+      const blob = await reportService.downloadAttendanceReportPdf({
+        date: selectedDate || undefined,
+      } as any);
+      reportService.triggerDownload(blob, 'reporte-asistencias.pdf');
+      toast.success('Reporte de asistencias descargado');
+    } catch {
+      toast.error('Error al descargar reporte de asistencias');
+    }
+  };
+
   const attendances = attendancesData?.content || [];
   const filteredAttendances = attendances.filter((a) => {
     const q = searchTerm.toLowerCase();
@@ -154,12 +168,22 @@ export const AttendancesPage: React.FC = () => {
               : 'Registro en tiempo real de entradas y salidas de socios en torniquetes y recepción.'}
           </p>
         </div>
-        {isAdminOrRecep && (
-          <Button onClick={() => setIsCheckInOpen(true)} className="gap-2">
-            <LogIn className="h-4 w-4" />
-            <span>Registrar Entrada (Check-In)</span>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleDownloadReportPdf}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            <span>Reporte PDF</span>
           </Button>
-        )}
+          {isAdminOrRecep && (
+            <Button onClick={() => setIsCheckInOpen(true)} className="gap-2">
+              <LogIn className="h-4 w-4" />
+              <span>Registrar Entrada (Check-In)</span>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Filter and Search Bar */}

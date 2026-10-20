@@ -507,3 +507,383 @@ export interface Branch {
   phone?: string;
   active?: boolean;
 }
+
+export interface BranchResponse {
+  id: number;
+  name: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  active: boolean;
+  createdAt?: string;
+}
+
+export interface CreateBranchRequest {
+  name: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  active?: boolean;
+}
+
+export interface UpdateBranchRequest {
+  name?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  active?: boolean;
+}
+
+export interface ReceptionistResponse {
+  id: string;
+  userId: string;
+  username: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  branchId: number;
+  branchName?: string;
+  hireDate?: string;
+  shift?: string;
+  active: boolean;
+  createdAt?: string;
+}
+
+export interface CreateReceptionistRequest {
+  userId: string;
+  branchId: number;
+  hireDate?: string;
+  shift?: string;
+}
+
+export interface UpdateReceptionistRequest {
+  branchId?: number;
+  hireDate?: string;
+  shift?: string;
+  active?: boolean;
+}
+
+export interface TrainerResponse {
+  id: string;
+  userId: string;
+  username: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  branchId?: number;
+  branchName?: string;
+  bio?: string;
+  hireDate?: string;
+  active: boolean;
+  createdAt?: string;
+  specializationIds?: number[];
+  specializationNames?: string[];
+}
+
+export interface CreateTrainerRequest {
+  userId: string;
+  branchId?: number;
+  bio?: string;
+  hireDate?: string;
+  specializationIds?: number[];
+}
+
+export interface UpdateTrainerRequest {
+  branchId?: number;
+  bio?: string;
+  hireDate?: string;
+  active?: boolean;
+  specializationIds?: number[];
+}
+
+export interface SpecializationResponse {
+  id: number;
+  name: string;
+  description?: string;
+  createdAt?: string;
+}
+
+export interface CreateSpecializationRequest {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateSpecializationRequest {
+  name?: string;
+  description?: string;
+}
+
+export interface TrainerSpecializationResponse {
+  trainerId: string;
+  specializationId: number;
+  specializationName?: string;
+  assignedAt?: string;
+}
+
+export interface AssignTrainerSpecializationRequest {
+  trainerId: string;
+  specializationId: number;
+}
+
+export interface TrainerAssignmentResponse {
+  id: number;
+  trainerId: string;
+  trainerName?: string;
+  memberId: string;
+  memberName?: string;
+  startDate: string;
+  endDate?: string;
+  active: boolean;
+  notes?: string;
+  createdAt?: string;
+}
+
+export interface CreateTrainerAssignmentRequest {
+  trainerId: string;
+  memberId: string;
+  startDate?: string;
+  endDate?: string;
+  notes?: string;
+}
+
+export interface UpdateTrainerAssignmentRequest {
+  startDate?: string;
+  endDate?: string;
+  active?: boolean;
+  notes?: string;
+}
+
+export interface ExerciseResponse {
+  id: number;
+  name: string;
+  description?: string;
+  muscleGroup: string;
+  equipment?: string;
+  difficulty?: string;
+  videoUrl?: string;
+  active: boolean;
+  createdAt?: string;
+}
+
+export interface CreateExerciseRequest {
+  name: string;
+  description?: string;
+  muscleGroup: string;
+  equipment?: string;
+  difficulty?: string;
+  videoUrl?: string;
+  active?: boolean;
+}
+
+export interface UpdateExerciseRequest {
+  name?: string;
+  description?: string;
+  muscleGroup?: string;
+  equipment?: string;
+  difficulty?: string;
+  videoUrl?: string;
+  active?: boolean;
+}
+
+export interface RoutineExerciseResponse {
+  id: number;
+  routineId: number;
+  exerciseId: number;
+  exerciseName?: string;
+  muscleGroup?: string;
+  sets: number;
+  repetitions?: number;
+  restSeconds?: number;
+  notes?: string;
+  orderIndex?: number;
+}
+
+export interface AddRoutineExerciseRequest {
+  exerciseId: number;
+  sets: number;
+  repetitions?: number;
+  restSeconds?: number;
+  notes?: string;
+  orderIndex?: number;
+}
+
+export interface RoutineResponse {
+  id: number;
+  trainerId?: string;
+  trainerName?: string;
+  memberId?: string;
+  memberName?: string;
+  name: string;
+  description?: string;
+  goal?: string;
+  difficultyLevel?: string;
+  active: boolean;
+  createdAt?: string;
+  exercises?: RoutineExerciseResponse[];
+}
+
+export interface CreateRoutineRequest {
+  trainerId?: string;
+  memberId?: string;
+  name: string;
+  description?: string;
+  goal?: string;
+  difficultyLevel?: string;
+  active?: boolean;
+}
+
+export interface UpdateRoutineRequest {
+  trainerId?: string;
+  memberId?: string;
+  name?: string;
+  description?: string;
+  goal?: string;
+  difficultyLevel?: string;
+  active?: boolean;
+}
+
+export interface WorkoutLogResponse {
+  id: number;
+  memberId: string;
+  memberName?: string;
+  routineId?: number;
+  routineName?: string;
+  exerciseId: number;
+  exerciseName?: string;
+  logDate: string;
+  setsCompleted: number;
+  repsCompleted: number;
+  weightUsed?: number;
+  perceivedEffort?: number;
+  notes?: string;
+  createdAt?: string;
+}
+
+export interface CreateWorkoutLogRequest {
+  memberId: string;
+  routineId?: number;
+  exerciseId: number;
+  logDate?: string;
+  setsCompleted: number;
+  repsCompleted: number;
+  weightUsed?: number;
+  perceivedEffort?: number;
+  notes?: string;
+}
+
+export interface UpdateWorkoutLogRequest {
+  logDate?: string;
+  setsCompleted?: number;
+  repsCompleted?: number;
+  weightUsed?: number;
+  perceivedEffort?: number;
+  notes?: string;
+}
+
+export interface GoalResponse {
+  id: number;
+  name: string;
+  description?: string;
+  category?: string;
+  active: boolean;
+  createdAt?: string;
+}
+
+export interface CreateGoalRequest {
+  name: string;
+  description?: string;
+  category?: string;
+  active?: boolean;
+}
+
+export interface UpdateGoalRequest {
+  name?: string;
+  description?: string;
+  category?: string;
+  active?: boolean;
+}
+
+export interface MemberGoalResponse {
+  id: number;
+  memberId: string;
+  memberName?: string;
+  goalId: number;
+  goalName?: string;
+  targetDate?: string;
+  status: string;
+  targetValue?: number;
+  currentValue?: number;
+  notes?: string;
+  createdAt?: string;
+}
+
+export interface AssignMemberGoalRequest {
+  memberId: string;
+  goalId: number;
+  targetDate?: string;
+  status?: string;
+  targetValue?: number;
+  currentValue?: number;
+  notes?: string;
+}
+
+export interface UpdateMemberGoalRequest {
+  targetDate?: string;
+  status?: string;
+  targetValue?: number;
+  currentValue?: number;
+  notes?: string;
+}
+
+export interface PhysicalMeasurementResponse {
+  id: number;
+  memberId: string;
+  memberName?: string;
+  measuredByTrainerId?: string;
+  trainerName?: string;
+  measurementDate: string;
+  weightKg?: number;
+  heightCm?: number;
+  bodyFatPercentage?: number;
+  muscleMassKg?: number;
+  chestCm?: number;
+  waistCm?: number;
+  hipsCm?: number;
+  armCm?: number;
+  thighCm?: number;
+  notes?: string;
+  createdAt?: string;
+}
+
+export interface CreatePhysicalMeasurementRequest {
+  memberId: string;
+  measuredByTrainerId?: string;
+  measurementDate?: string;
+  weightKg?: number;
+  heightCm?: number;
+  bodyFatPercentage?: number;
+  muscleMassKg?: number;
+  chestCm?: number;
+  waistCm?: number;
+  hipsCm?: number;
+  armCm?: number;
+  thighCm?: number;
+  notes?: string;
+}
+
+export interface UpdatePhysicalMeasurementRequest {
+  measuredByTrainerId?: string;
+  measurementDate?: string;
+  weightKg?: number;
+  heightCm?: number;
+  bodyFatPercentage?: number;
+  muscleMassKg?: number;
+  chestCm?: number;
+  waistCm?: number;
+  hipsCm?: number;
+  armCm?: number;
+  thighCm?: number;
+  notes?: string;
+}

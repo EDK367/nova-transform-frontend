@@ -329,7 +329,7 @@ export const PlansPage: React.FC = () => {
               />
             </div>
             <div>
-              <Label required>Precio ($ MXN)</Label>
+              <Label required>Precio (Q)</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -391,7 +391,7 @@ export const PlansPage: React.FC = () => {
               />
             </div>
             <div>
-              <Label required>Precio ($ MXN)</Label>
+              <Label required>Precio (Q)</Label>
               <Input
                 type="number"
                 step="0.01"

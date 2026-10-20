@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { invoiceService } from '@/services/invoice.service';
+import { reportService } from '@/services/report.service';
 import { membershipService } from '@/services/membership.service';
 import {
   CreateInvoiceRequest,
@@ -38,6 +39,7 @@ import {
   ChevronRight,
   Filter,
   DollarSign,
+  Download,
 } from 'lucide-react';
 
 const createInvoiceSchema = z.object({
@@ -169,6 +171,16 @@ export const InvoicesPage: React.FC = () => {
       ...data,
       observation: data.observation || undefined,
     });
+  };
+
+  const handleDownloadInvoicePdf = async (inv: InvoiceResponse) => {
+    try {
+      const blob = await reportService.downloadInvoicePdf(inv.id);
+      reportService.triggerDownload(blob, `factura-${inv.id}.pdf`);
+      toast.success(`Factura #${inv.id} descargada exitosamente`);
+    } catch {
+      toast.error('Error al descargar la factura en PDF');
+    }
   };
 
   const onPaymentSubmit = (data: CreatePaymentFormData) => {
@@ -322,6 +334,16 @@ export const InvoicesPage: React.FC = () => {
                         <Button
                           size="sm"
                           variant="ghost"
+                          className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                          onClick={() => handleDownloadInvoicePdf(inv)}
+                          title="Descargar Factura en PDF"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="ghost"
                           onClick={() => setViewingPaymentsInvoiceId(inv.id)}
                           title="Ver comprobantes de pago"
                         >
@@ -416,7 +438,7 @@ export const InvoicesPage: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label required>Monto a Facturar ($ MXN)</Label>
+              <Label required>Monto a Facturar (Q)</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -494,7 +516,7 @@ export const InvoicesPage: React.FC = () => {
           </div>
 
           <div>
-            <Label required>Monto a Abonar ($ MXN)</Label>
+            <Label required>Monto a Abonar (Q)</Label>
             <Input
               type="number"
               step="0.01"

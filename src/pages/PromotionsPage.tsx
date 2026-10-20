@@ -300,7 +300,7 @@ export const PromotionsPage: React.FC = () => {
               <Label required>Tipo de Descuento</Label>
               <Select {...createForm.register('discountType')}>
                 <option value="PERCENTAGE">Porcentaje (% Descuento)</option>
-                <option value="FIXED_AMOUNT">Monto Fijo ($ MXN Directo)</option>
+                <option value="FIXED_AMOUNT">Monto Fijo (Q Directo)</option>
               </Select>
             </div>
             <div>
@@ -391,7 +391,7 @@ export const PromotionsPage: React.FC = () => {
               <Label required>Tipo de Descuento</Label>
               <Select {...editForm.register('discountType')}>
                 <option value="PERCENTAGE">Porcentaje (% Descuento)</option>
-                <option value="FIXED_AMOUNT">Monto Fijo ($ MXN Directo)</option>
+                <option value="FIXED_AMOUNT">Monto Fijo (Q Directo)</option>
               </Select>
             </div>
             <div>

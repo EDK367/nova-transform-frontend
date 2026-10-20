@@ -7,13 +7,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Lock, User, Sparkles, Dumbbell, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Lock, User, Sparkles, Dumbbell, ShieldCheck, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 const loginSchema = z.object({
   username: z
     .string()
-    .min(3, 'El usuario debe tener al menos 3 caracteres')
-    .max(50, 'El usuario no puede superar 50 caracteres'),
+    .min(3, 'El usuario o correo debe tener al menos 3 caracteres')
+    .max(150, 'El usuario o correo no puede superar 150 caracteres'),
   password: z
     .string()
     .min(6, 'La contraseña debe tener al min 6 caracteres')
@@ -27,6 +27,7 @@ export const Login: React.FC = () => {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -145,7 +146,7 @@ export const Login: React.FC = () => {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
               <Label htmlFor="username" required>
-                Usuario
+                Usuario o Correo Electrónico
               </Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
@@ -154,7 +155,7 @@ export const Login: React.FC = () => {
                 <Input
                   id="username"
                   type="text"
-                  placeholder="ej. admin"
+                  placeholder="ej. admin o usuario@correo.com"
                   className="pl-9 bg-slate-900/80 border-slate-700 text-white placeholder:text-slate-500 focus-visible:ring-emerald-500"
                   error={errors.username?.message}
                   {...register('username')}
@@ -174,12 +175,21 @@ export const Login: React.FC = () => {
                 </div>
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
-                  className="pl-9 bg-slate-900/80 border-slate-700 text-white placeholder:text-slate-500 focus-visible:ring-emerald-500"
+                  className="pl-9 pr-10 bg-slate-900/80 border-slate-700 text-white placeholder:text-slate-500 focus-visible:ring-emerald-500"
                   error={errors.password?.message}
                   {...register('password')}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
 

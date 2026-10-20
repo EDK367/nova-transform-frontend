@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { memberService } from '@/services/member.service';
-import { CreateMemberRequest, MemberResponse } from '@/types';
+import { membershipService } from '@/services/membership.service';
+import { reportService } from '@/services/report.service';
+import { CreateMemberRequest, MemberResponse, MembershipPlanResponse } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +16,7 @@ import { TableSkeleton } from '@/components/common/LoadingSkeleton';
 import { EmptyState } from '@/components/common/EmptyState';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -29,6 +31,9 @@ import {
   Mail,
   Phone,
   Calendar,
+  QrCode,
+  Send,
+  CreditCard,
 } from 'lucide-react';
 
 const createMemberSchema = z.object({
@@ -38,6 +43,7 @@ const createMemberSchema = z.object({
   phone: z.string().max(20).optional(),
   username: z.string().min(3, 'Mínimo 3 caracteres').max(50),
   branchId: z.coerce.number().optional(),
+  planId: z.coerce.number().optional(),
 });
 
 type CreateMemberFormData = z.infer<typeof createMemberSchema>;
@@ -51,6 +57,11 @@ export const MembersPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deletingMember, setDeletingMember] = useState<MemberResponse | null>(null);
+  const [subscribingMember, setSubscribingMember] = useState<MemberResponse | null>(null);
+  const [subscribePlanId, setSubscribePlanId] = useState<number>(1);
+  const [subscribeStartDate, setSubscribeStartDate] = useState<string>(
+    new Date().toISOString().split('T')[0]
+  );
 
   // Temporary password modal state
   const [tempPasswordData, setTempPasswordData] = useState<{
@@ -72,6 +83,11 @@ export const MembersPage: React.FC = () => {
     queryFn: () => memberService.getAll({ page, size: 10, sortBy: 'name', sortDirection: 'asc' }),
   });
 
+  const { data: plans } = useQuery<MembershipPlanResponse[]>({
+    queryKey: ['plans'],
+    queryFn: () => membershipService.getPlans(),
+  });
+
   const createForm = useForm<CreateMemberFormData>({
     resolver: zodResolver(createMemberSchema),
     defaultValues: {
@@ -81,13 +97,14 @@ export const MembersPage: React.FC = () => {
       phone: '',
       username: '',
       branchId: 1,
+      planId: 0,
     },
   });
 
   // Create Member Mutation
   const createMutation = useMutation({
     mutationFn: (data: CreateMemberRequest) => memberService.create(data),
-    onSuccess: (res) => {
+    onSuccess: (res, variables) => {
       queryClient.invalidateQueries({ queryKey: ['members'] });
       setIsCreateOpen(false);
       createForm.reset();
@@ -99,6 +116,42 @@ export const MembersPage: React.FC = () => {
         fullName: `${res.firstName} ${res.lastName}`,
         roleName: 'CLIENTE',
       });
+
+      const selectedPlanId = Number(createForm.getValues('planId'));
+      if (selectedPlanId && selectedPlanId > 0) {
+        membershipService
+          .subscribe({
+            memberId: res.id,
+            planId: selectedPlanId,
+            startDate: new Date().toISOString().split('T')[0],
+          })
+          .then(() => {
+            queryClient.invalidateQueries({ queryKey: ['memberships'] });
+            toast.success('Membresía inicial contratada exitosamente para el socio');
+          })
+          .catch((err) => {
+            const msg = err.response?.data?.message || 'Error al contratar la membresía inicial';
+            toast.error(msg);
+          });
+      }
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Error al registrar socio';
+      toast.error(msg);
+    },
+  });
+
+  const subscribeMutation = useMutation({
+    mutationFn: (data: { memberId: string; planId: number; startDate?: string }) =>
+      membershipService.subscribe(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['memberships'] });
+      setSubscribingMember(null);
+      toast.success('Membresía contratada exitosamente');
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Error al contratar membresía';
+      toast.error(msg);
     },
   });
 
@@ -110,13 +163,40 @@ export const MembersPage: React.FC = () => {
       setDeletingMember(null);
       toast.success('Socio eliminado correctamente');
     },
+    onError: (err: any) => {
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Error al eliminar socio';
+      toast.error(msg);
+    },
   });
 
   const onCreateSubmit = (data: CreateMemberFormData) => {
     createMutation.mutate({
-      ...data,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      email: data.email,
       phone: data.phone || undefined,
+      username: data.username,
+      branchId: data.branchId,
     });
+  };
+
+  const handleDownloadCarnet = async (m: MemberResponse) => {
+    try {
+      const blob = await reportService.downloadMemberCarnetPdf(m.id);
+      reportService.triggerDownload(blob, `carnet-${m.username}.pdf`);
+      toast.success(`Carnet digital de @${m.username} descargado`);
+    } catch {
+      toast.error('Error al generar carnet en PDF');
+    }
+  };
+
+  const handleSendCarnet = async (m: MemberResponse) => {
+    try {
+      await memberService.solicitarCarnet(m.id);
+      toast.success(`Carnet enviado exitosamente al correo de @${m.username}`);
+    } catch {
+      toast.error('Error al enviar carnet por correo');
+    }
   };
 
   const members = membersData?.content || [];
@@ -197,7 +277,7 @@ export const MembersPage: React.FC = () => {
                     <th className="py-3 px-4">Fecha Registro</th>
                     <th className="py-3 px-4">Sucursal</th>
                     <th className="py-3 px-4">Estado</th>
-                    {isAdmin && <th className="py-3 px-4 text-right">Acciones</th>}
+                    <th className="py-3 px-4 text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
@@ -235,8 +315,42 @@ export const MembersPage: React.FC = () => {
                           {m.active ? 'Activo' : 'Inactivo'}
                         </Badge>
                       </td>
-                      {isAdmin && (
-                        <td className="py-3.5 px-4 text-right">
+                      <td className="py-3.5 px-4 text-right space-x-1 whitespace-nowrap">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                          onClick={() => {
+                            setSubscribingMember(m);
+                            if (plans && plans.length > 0) {
+                              setSubscribePlanId(plans[0].id);
+                            }
+                          }}
+                          title="Contratar Plan de Membresía"
+                        >
+                          <CreditCard className="h-4 w-4 mr-1" />
+                          <span className="text-xs">Contratar</span>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                          onClick={() => handleDownloadCarnet(m)}
+                          title="Descargar Carnet Digital (PDF con QR)"
+                        >
+                          <QrCode className="h-4 w-4 mr-1" />
+                          <span className="text-xs">Carnet QR</span>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+                          onClick={() => handleSendCarnet(m)}
+                          title="Enviar Carnet y Credenciales por Correo"
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                        </Button>
+                        {isAdmin && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -246,8 +360,8 @@ export const MembersPage: React.FC = () => {
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
-                        </td>
-                      )}
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -353,6 +467,18 @@ export const MembersPage: React.FC = () => {
             </div>
           </div>
 
+          <div>
+            <Label>Contratar Plan Inicial (Opcional)</Label>
+            <Select {...createForm.register('planId')}>
+              <option value={0}>Sin membresía inicial (contratar después)</option>
+              {plans?.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} - {formatCurrency(p.price)} ({p.duration} días)
+                </option>
+              ))}
+            </Select>
+          </div>
+
           <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <Button
               type="button"
@@ -363,6 +489,64 @@ export const MembersPage: React.FC = () => {
             </Button>
             <Button type="submit" isLoading={createMutation.isPending}>
               Registrar Socio
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal: Contract Membership Plan */}
+      <Modal
+        isOpen={!!subscribingMember}
+        onClose={() => setSubscribingMember(null)}
+        title="Contratar Plan de Membresía"
+        description={`Asigna un nuevo plan a ${subscribingMember?.firstName} ${subscribingMember?.lastName} (@${subscribingMember?.username}).`}
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (subscribingMember && subscribePlanId) {
+              subscribeMutation.mutate({
+                memberId: subscribingMember.id,
+                planId: subscribePlanId,
+                startDate: subscribeStartDate,
+              });
+            }
+          }}
+          className="space-y-4 py-2"
+        >
+          <div>
+            <Label required>Plan de Membresía</Label>
+            <Select
+              value={subscribePlanId}
+              onChange={(e) => setSubscribePlanId(Number(e.target.value))}
+            >
+              {plans?.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} - {formatCurrency(p.price)} ({p.duration} días)
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <div>
+            <Label>Fecha de Inicio</Label>
+            <Input
+              type="date"
+              value={subscribeStartDate}
+              onChange={(e) => setSubscribeStartDate(e.target.value)}
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSubscribingMember(null)}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" isLoading={subscribeMutation.isPending}>
+              Confirmar Contratación
             </Button>
           </div>
         </form>

@@ -20,6 +20,15 @@ import {
   LogOut,
   ChevronRight,
   X,
+  Building2,
+  UserCog,
+  Dumbbell,
+  Activity,
+  Target,
+  Scale,
+  QrCode,
+  BookOpen,
+  ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -54,6 +63,12 @@ const navSections: { title: string; items: NavItem[] }[] = [
     title: 'ADMINISTRACIÓN',
     items: [
       {
+        name: 'Sucursales',
+        href: '/branches',
+        icon: Building2,
+        roles: ['ADMIN'],
+      },
+      {
         name: 'Usuarios',
         href: '/users',
         icon: Users,
@@ -63,6 +78,12 @@ const navSections: { title: string; items: NavItem[] }[] = [
         name: 'Roles y Permisos',
         href: '/roles',
         icon: ShieldCheck,
+        roles: ['ADMIN'],
+      },
+      {
+        name: 'Recepcionistas',
+        href: '/receptionists',
+        icon: UserCog,
         roles: ['ADMIN'],
       },
       {
@@ -93,6 +114,64 @@ const navSections: { title: string; items: NavItem[] }[] = [
         href: '/benefits',
         icon: Award,
         roles: ['ADMIN', 'RECEPCIONISTA', 'ENTRENADOR', 'CLIENTE'],
+      },
+    ],
+  },
+  {
+    title: 'ENTRENAMIENTO',
+    items: [
+      {
+        name: 'Entrenadores',
+        href: '/trainers',
+        icon: Dumbbell,
+        roles: ['ADMIN', 'RECEPCIONISTA', 'ENTRENADOR', 'CLIENTE'],
+      },
+      {
+        name: 'Especialidades',
+        href: '/specializations',
+        icon: Award,
+        roles: ['ADMIN', 'ENTRENADOR'],
+      },
+      {
+        name: 'Asignaciones',
+        href: '/trainer-assignments',
+        icon: UserCheck,
+        roles: ['ADMIN', 'ENTRENADOR', 'CLIENTE'],
+      },
+      {
+        name: 'Ejercicios',
+        href: '/exercises',
+        icon: Activity,
+        roles: ['ADMIN', 'ENTRENADOR', 'CLIENTE'],
+      },
+      {
+        name: 'Rutinas',
+        href: '/routines',
+        icon: Layers,
+        roles: ['ADMIN', 'ENTRENADOR', 'CLIENTE'],
+      },
+      {
+        name: 'Bitácora',
+        href: '/workout-logs',
+        icon: Activity,
+        roles: ['ADMIN', 'ENTRENADOR', 'CLIENTE'],
+      },
+    ],
+  },
+  {
+    title: 'SALUD Y METAS',
+    items: [
+      {
+        name: 'Metas y Objetivos',
+        href: '/goals',
+        icon: Target,
+        roles: ['ADMIN', 'ENTRENADOR', 'CLIENTE'],
+      },
+      {
+        name: 'Medidas Físicas',
+        href: '/physical-measurements',
+        icon: Scale,
+        roles: ['ADMIN', 'ENTRENADOR', 'CLIENTE'],
       },
     ],
   },
@@ -132,7 +211,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
     ],
   },
   {
-    title: 'FINANZAS',
+    title: 'FINANZAS Y REPORTES',
     items: [
       {
         name: 'Facturas',
@@ -157,6 +236,12 @@ const navSections: { title: string; items: NavItem[] }[] = [
         href: '/promotions',
         icon: Sparkles,
         roles: ['ADMIN', 'RECEPCIONISTA', 'ENTRENADOR', 'CLIENTE'],
+      },
+      {
+        name: 'Reportes y Carnet QR',
+        href: '/reports',
+        icon: QrCode,
+        roles: ['ADMIN', 'RECEPCIONISTA', 'CLIENTE'],
       },
     ],
   },
@@ -226,15 +311,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                     <NavLink
                       key={item.href}
                       to={item.href}
-                      onClick={() => {
-                        if (window.innerWidth < 1024) onClose();
-                      }}
+                      onClick={onClose}
                       className={({ isActive }) =>
                         cn(
                           'flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group',
                           isActive
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-sm'
-                            : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-glow-subtle'
+                            : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
                         )
                       }
                     >
@@ -266,7 +349,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
         {/* User Card & Logout Footer */}
         <div className="p-4 border-t border-slate-800 bg-slate-900/50">
-          <div className="flex items-center justify-between p-2 rounded-xl bg-slate-800/50 border border-slate-700/50 mb-2">
+          <div className="flex items-center justify-between p-2 rounded-xl bg-slate-800/50 border border-slate-700/50">
             <div className="flex items-center gap-2.5 overflow-hidden">
               <div className="h-9 w-9 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 font-bold text-xs flex items-center justify-center shrink-0">
                 {user?.firstName?.charAt(0) || 'U'}

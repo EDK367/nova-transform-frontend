@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userService } from '@/services/user.service';
 import { CreateUserRequest, RoleResponse, UpdateUserRequest, UserResponse } from '@/types';
@@ -54,6 +55,7 @@ const updateUserSchema = z.object({
 type UpdateUserFormData = z.infer<typeof updateUserSchema>;
 
 export const UsersPage: React.FC = () => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
@@ -86,6 +88,8 @@ export const UsersPage: React.FC = () => {
     queryFn: () => userService.getRoles(),
   });
 
+  const allowedStaffRoles = roles?.filter((r) => r.name === 'ENTRENADOR' || r.name === 'RECEPCIONISTA') || [];
+
   // Create Form
   const createForm = useForm<CreateUserFormData>({
     resolver: zodResolver(createUserSchema),
@@ -95,11 +99,20 @@ export const UsersPage: React.FC = () => {
       email: '',
       phone: '',
       username: '',
-      roleId: 1,
+      roleId: 2,
       branchId: 1,
       hireDate: new Date().toISOString().split('T')[0],
     },
   });
+
+  React.useEffect(() => {
+    if (allowedStaffRoles.length > 0) {
+      const current = createForm.getValues('roleId');
+      if (!allowedStaffRoles.some((r) => r.id === Number(current))) {
+        createForm.setValue('roleId', allowedStaffRoles[0].id);
+      }
+    }
+  }, [allowedStaffRoles, createForm]);
 
   // Edit Form
   const editForm = useForm<UpdateUserFormData>({
@@ -122,6 +135,10 @@ export const UsersPage: React.FC = () => {
         fullName: `${res.firstName} ${res.lastName}`,
         roleName: res.role,
       });
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Error al registrar usuario interno';
+      toast.error(msg);
     },
   });
 
@@ -355,9 +372,25 @@ export const UsersPage: React.FC = () => {
       <Modal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        title="Crear Nuevo Usuario Interno"
-        description="Registra un administrador, entrenador o recepcionista en la plataforma."
+        title="Crear Nuevo Usuario del Personal"
+        description="Registra personal operativo del gimnasio (entrenadores o recepcionistas)."
       >
+        <div className="mb-4 p-3 bg-secondary/50 rounded-lg border border-border text-xs text-muted-foreground flex items-center justify-between gap-2">
+          <span>¿Deseas registrar un cliente o socio?</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-primary hover:text-primary/80 h-auto py-1 px-2 text-xs font-semibold shrink-0"
+            onClick={() => {
+              setIsCreateOpen(false);
+              navigate('/members');
+            }}
+          >
+            Ir a Socios &rarr;
+          </Button>
+        </div>
+
         <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4 py-2">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -408,12 +441,12 @@ export const UsersPage: React.FC = () => {
               />
             </div>
             <div>
-              <Label required>Rol</Label>
+              <Label required>Rol del Personal</Label>
               <Select
                 error={createForm.formState.errors.roleId?.message}
                 {...createForm.register('roleId')}
               >
-                {roles?.map((r) => (
+                {allowedStaffRoles.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.name} - {r.description}
                   </option>

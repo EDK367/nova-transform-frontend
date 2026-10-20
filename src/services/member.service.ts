@@ -34,4 +34,15 @@ export const memberService = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`/api/v1/members/${id}`);
   },
+
+  downloadCarnetPdf: async (id: string): Promise<Blob> => {
+    const response = await api.get(`/api/v1/members/${id}/carnet-pdf`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  solicitarCarnet: async (id: string): Promise<void> => {
+    await api.post(`/api/v1/members/${id}/solicitar-carnet`);
+  },
 };

@@ -26,10 +26,24 @@ api.interceptors.request.use(
 // Response interceptor to handle errors globally
 api.interceptors.response.use(
   (response) => response,
-  (error: AxiosError<{ message?: string; error?: string; status?: number }>) => {
+  (error: AxiosError<{ message?: string; error?: string; status?: number; messages?: string[] } | string>) => {
     const status = error.response?.status;
     const errorData = error.response?.data;
-    const errorMessage = errorData?.message || errorData?.error || error.message || 'Error en la petición';
+    let errorMessage = 'Error en la petición';
+
+    if (typeof errorData === 'string') {
+      errorMessage = errorData;
+    } else if (errorData && typeof errorData === 'object') {
+      if (errorData.message) {
+        errorMessage = errorData.message;
+      } else if (Array.isArray(errorData.messages) && errorData.messages.length > 0) {
+        errorMessage = errorData.messages.join('. ');
+      } else if (errorData.error) {
+        errorMessage = errorData.error;
+      }
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
 
     if (status === 401) {
       // Don't toast for login endpoint 401 (handled by login form)
@@ -43,8 +57,12 @@ api.interceptors.response.use(
       }
     } else if (status === 403) {
       toast.error('Acceso denegado: No cuentas con permisos para esta acción.');
+    } else if (status && status >= 400 && status < 500) {
+      toast.error(errorMessage);
     } else if (status && status >= 500) {
       toast.error(`Error del servidor (${status}): ${errorMessage}`);
+    } else if (!status) {
+      toast.error('No se pudo establecer conexión con el servidor.');
     }
 
     return Promise.reject(error);

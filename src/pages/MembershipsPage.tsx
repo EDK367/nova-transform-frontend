@@ -5,6 +5,7 @@ import { memberService } from '@/services/member.service';
 import {
   CancelMembershipRequest,
   ChangePlanRequest,
+  CreateMemberRequest,
   CreateMembershipRequest,
   FreezeMembershipRequest,
   MembershipFreezeResponse,
@@ -73,6 +74,17 @@ const cancelSchema = z.object({
 
 type CancelFormData = z.infer<typeof cancelSchema>;
 
+const quickMemberSchema = z.object({
+  firstName: z.string().min(1, 'Nombre es requerido').max(100),
+  lastName: z.string().min(1, 'Apellido es requerido').max(100),
+  email: z.string().email('Email inválido').max(150),
+  phone: z.string().max(20).optional(),
+  username: z.string().min(3, 'Mínimo 3 caracteres').max(50),
+  branchId: z.coerce.number().optional(),
+});
+
+type QuickMemberFormData = z.infer<typeof quickMemberSchema>;
+
 export const MembershipsPage: React.FC = () => {
   const { user, hasRole } = useAuth();
   const isAdminOrRecep = hasRole('ADMIN', 'RECEPCIONISTA');
@@ -86,6 +98,7 @@ export const MembershipsPage: React.FC = () => {
 
   // Modals state
   const [isSubscribeOpen, setIsSubscribeOpen] = useState(false);
+  const [isQuickMemberOpen, setIsQuickMemberOpen] = useState(false);
   const [changingPlanMembership, setChangingPlanMembership] = useState<MembershipResponse | null>(null);
   const [freezingMembership, setFreezingMembership] = useState<MembershipResponse | null>(null);
   const [cancellingMembership, setCancellingMembership] = useState<MembershipResponse | null>(null);
@@ -144,6 +157,18 @@ export const MembershipsPage: React.FC = () => {
     },
   });
 
+  const quickMemberForm = useForm<QuickMemberFormData>({
+    resolver: zodResolver(quickMemberSchema),
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      username: '',
+      branchId: 1,
+    },
+  });
+
   const changePlanForm = useForm<ChangePlanFormData>({
     resolver: zodResolver(changePlanSchema),
   });
@@ -169,6 +194,25 @@ export const MembershipsPage: React.FC = () => {
       setIsSubscribeOpen(false);
       subscribeForm.reset();
       toast.success('Socio suscrito a la membresía exitosamente');
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Error al suscribir la membresía';
+      toast.error(msg);
+    },
+  });
+
+  const quickMemberMutation = useMutation({
+    mutationFn: (data: CreateMemberRequest) => memberService.create(data),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['members-select'] });
+      setIsQuickMemberOpen(false);
+      quickMemberForm.reset();
+      subscribeForm.setValue('memberId', res.id);
+      toast.success(`Cliente ${res.firstName} ${res.lastName} registrado y seleccionado`);
+    },
+    onError: (err: any) => {
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Error al registrar cliente';
+      toast.error(msg);
     },
   });
 
@@ -451,7 +495,16 @@ export const MembershipsPage: React.FC = () => {
           className="space-y-4 py-2"
         >
           <div>
-            <Label required>Socio</Label>
+            <div className="flex items-center justify-between mb-1">
+              <Label required>Socio / Cliente</Label>
+              <button
+                type="button"
+                onClick={() => setIsQuickMemberOpen(true)}
+                className="text-xs text-primary hover:underline font-semibold"
+              >
+                + Registrar Nuevo Cliente
+              </button>
+            </div>
             <Select
               error={subscribeForm.formState.errors.memberId?.message}
               {...subscribeForm.register('memberId')}
@@ -495,6 +548,100 @@ export const MembershipsPage: React.FC = () => {
             </Button>
             <Button type="submit" isLoading={subscribeMutation.isPending}>
               Confirmar Suscripción
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal: Quick Register Member */}
+      <Modal
+        isOpen={isQuickMemberOpen}
+        onClose={() => setIsQuickMemberOpen(false)}
+        title="Registrar Nuevo Cliente / Socio"
+        description="Registra al cliente rápidamente para luego asignarle la membresía."
+      >
+        <form
+          onSubmit={quickMemberForm.handleSubmit((d) =>
+            quickMemberMutation.mutate({
+              firstName: d.firstName,
+              lastName: d.lastName,
+              email: d.email,
+              phone: d.phone || undefined,
+              username: d.username,
+              branchId: d.branchId,
+            })
+          )}
+          className="space-y-4 py-2"
+        >
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label required>Nombre</Label>
+              <Input
+                placeholder="ej. Isabel"
+                error={quickMemberForm.formState.errors.firstName?.message}
+                {...quickMemberForm.register('firstName')}
+              />
+            </div>
+            <div>
+              <Label required>Apellido</Label>
+              <Input
+                placeholder="ej. Navarro"
+                error={quickMemberForm.formState.errors.lastName?.message}
+                {...quickMemberForm.register('lastName')}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label required>Correo Electrónico</Label>
+              <Input
+                type="email"
+                placeholder="isabel.navarro@gmail.com"
+                error={quickMemberForm.formState.errors.email?.message}
+                {...quickMemberForm.register('email')}
+              />
+            </div>
+            <div>
+              <Label>Teléfono</Label>
+              <Input
+                placeholder="+52 555 400 0001"
+                error={quickMemberForm.formState.errors.phone?.message}
+                {...quickMemberForm.register('phone')}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label required>Nombre de Usuario</Label>
+              <Input
+                placeholder="ej. inavarro"
+                error={quickMemberForm.formState.errors.username?.message}
+                {...quickMemberForm.register('username')}
+              />
+            </div>
+            <div>
+              <Label>Sucursal</Label>
+              <Select {...quickMemberForm.register('branchId')}>
+                <option value={1}>Sede Central (ID: 1)</option>
+                <option value={2}>Sede Norte (ID: 2)</option>
+                <option value={3}>Sede Sur (ID: 3)</option>
+                <option value={4}>Sede Poniente (ID: 4)</option>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsQuickMemberOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" isLoading={quickMemberMutation.isPending}>
+              Guardar y Seleccionar
             </Button>
           </div>
         </form>

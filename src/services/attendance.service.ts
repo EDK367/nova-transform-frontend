@@ -42,4 +42,12 @@ export const attendanceService = {
     const response = await api.put<ApiResponse<AttendanceResponse>>(`/api/v1/attendances/${id}/checkout`, data || {});
     return response.data.data;
   },
+
+  downloadReportPdf: async (params?: { memberId?: string; branchId?: number }): Promise<Blob> => {
+    const response = await api.get('/api/v1/reports/attendances/pdf', {
+      params,
+      responseType: 'blob',
+    });
+    return response.data;
+  },
 };
