@@ -1,3 +1,4 @@
+import { toPage } from './page-adapter';
 import api from './api';
 import {
   ApiResponse,
@@ -15,24 +16,48 @@ export const exerciseService = {
     sortBy?: string;
     sortDirection?: 'asc' | 'desc';
   }): Promise<PageResponse<ExerciseResponse>> => {
-    const response = await api.get<ApiResponse<PageResponse<ExerciseResponse>>>('/api/v1/exercises', {
-      params,
+    const response = await api.get<
+      ApiResponse<ExerciseResponse[]>
+    >('/api/v1/exercises', {
+      params: {
+        muscleGroup: params?.muscleGroup,
+      },
     });
-    return response.data.data;
+
+    const exercises = response.data.data.map((item) => ({
+      ...item,
+      active: true,
+    }));
+
+    return toPage(exercises, params);
   },
 
   getById: async (id: number): Promise<ExerciseResponse> => {
-    const response = await api.get<ApiResponse<ExerciseResponse>>(`/api/v1/exercises/${id}`);
+    const response = await api.get<
+      ApiResponse<ExerciseResponse>
+    >(`/api/v1/exercises/${id}`);
+
     return response.data.data;
   },
 
-  create: async (data: CreateExerciseRequest): Promise<ExerciseResponse> => {
-    const response = await api.post<ApiResponse<ExerciseResponse>>('/api/v1/exercises', data);
+  create: async (
+    data: CreateExerciseRequest
+  ): Promise<ExerciseResponse> => {
+    const response = await api.post<
+      ApiResponse<ExerciseResponse>
+    >('/api/v1/exercises', data);
+
     return response.data.data;
   },
 
-  update: async (id: number, data: UpdateExerciseRequest): Promise<ExerciseResponse> => {
-    const response = await api.put<ApiResponse<ExerciseResponse>>(`/api/v1/exercises/${id}`, data);
+  update: async (
+    id: number,
+    data: UpdateExerciseRequest
+  ): Promise<ExerciseResponse> => {
+    const response = await api.put<
+      ApiResponse<ExerciseResponse>
+    >(`/api/v1/exercises/${id}`, data);
+
     return response.data.data;
   },
 

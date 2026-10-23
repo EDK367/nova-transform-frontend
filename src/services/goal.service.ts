@@ -1,3 +1,4 @@
+import { toPage } from './page-adapter';
 import api from './api';
 import {
   ApiResponse,
@@ -18,24 +19,44 @@ export const goalService = {
     sortBy?: string;
     sortDirection?: 'asc' | 'desc';
   }): Promise<PageResponse<GoalResponse>> => {
-    const response = await api.get<ApiResponse<PageResponse<GoalResponse>>>('/api/v1/goals', {
-      params,
-    });
-    return response.data.data;
+    const response = await api.get<
+      ApiResponse<GoalResponse[]>
+    >('/api/v1/goals');
+
+    const goals = response.data.data.map((item) => ({
+      ...item,
+      active: true,
+    }));
+
+    return toPage(goals, params);
   },
 
   getGoalById: async (id: number): Promise<GoalResponse> => {
-    const response = await api.get<ApiResponse<GoalResponse>>(`/api/v1/goals/${id}`);
+    const response = await api.get<
+      ApiResponse<GoalResponse>
+    >(`/api/v1/goals/${id}`);
+
     return response.data.data;
   },
 
-  createGoal: async (data: CreateGoalRequest): Promise<GoalResponse> => {
-    const response = await api.post<ApiResponse<GoalResponse>>('/api/v1/goals', data);
+  createGoal: async (
+    data: CreateGoalRequest
+  ): Promise<GoalResponse> => {
+    const response = await api.post<
+      ApiResponse<GoalResponse>
+    >('/api/v1/goals', data);
+
     return response.data.data;
   },
 
-  updateGoal: async (id: number, data: UpdateGoalRequest): Promise<GoalResponse> => {
-    const response = await api.put<ApiResponse<GoalResponse>>(`/api/v1/goals/${id}`, data);
+  updateGoal: async (
+    id: number,
+    data: UpdateGoalRequest
+  ): Promise<GoalResponse> => {
+    const response = await api.put<
+      ApiResponse<GoalResponse>
+    >(`/api/v1/goals/${id}`, data);
+
     return response.data.data;
   },
 
@@ -51,24 +72,63 @@ export const goalService = {
     sortBy?: string;
     sortDirection?: 'asc' | 'desc';
   }): Promise<PageResponse<MemberGoalResponse>> => {
-    const response = await api.get<ApiResponse<PageResponse<MemberGoalResponse>>>('/api/v1/member-goals', {
-      params,
+    type ApiMemberGoal = Omit<
+      MemberGoalResponse,
+      'status'
+    > & {
+      status?: string;
+    };
+
+    const response = await api.get<
+      ApiResponse<ApiMemberGoal[]>
+    >('/api/v1/member-goals', {
+      params: {
+        memberId: params?.memberId,
+      },
     });
+
+    const goals = response.data.data
+      .map((item) => ({
+        ...item,
+        status: item.status ?? 'SIN_ESTADO',
+      }))
+      .filter(
+        (item) =>
+          !params?.status ||
+          item.status === params.status
+      );
+
+    return toPage(goals, params);
+  },
+
+  getMemberGoalById: async (
+    id: number
+  ): Promise<MemberGoalResponse> => {
+    const response = await api.get<
+      ApiResponse<MemberGoalResponse>
+    >(`/api/v1/member-goals/${id}`);
+
     return response.data.data;
   },
 
-  getMemberGoalById: async (id: number): Promise<MemberGoalResponse> => {
-    const response = await api.get<ApiResponse<MemberGoalResponse>>(`/api/v1/member-goals/${id}`);
+  assignMemberGoal: async (
+    data: AssignMemberGoalRequest
+  ): Promise<MemberGoalResponse> => {
+    const response = await api.post<
+      ApiResponse<MemberGoalResponse>
+    >('/api/v1/member-goals', data);
+
     return response.data.data;
   },
 
-  assignMemberGoal: async (data: AssignMemberGoalRequest): Promise<MemberGoalResponse> => {
-    const response = await api.post<ApiResponse<MemberGoalResponse>>('/api/v1/member-goals', data);
-    return response.data.data;
-  },
+  updateMemberGoal: async (
+    id: number,
+    data: UpdateMemberGoalRequest
+  ): Promise<MemberGoalResponse> => {
+    const response = await api.put<
+      ApiResponse<MemberGoalResponse>
+    >(`/api/v1/member-goals/${id}`, data);
 
-  updateMemberGoal: async (id: number, data: UpdateMemberGoalRequest): Promise<MemberGoalResponse> => {
-    const response = await api.put<ApiResponse<MemberGoalResponse>>(`/api/v1/member-goals/${id}`, data);
     return response.data.data;
   },
 

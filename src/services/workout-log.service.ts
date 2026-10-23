@@ -1,3 +1,4 @@
+import { toPage } from './page-adapter';
 import api from './api';
 import {
   ApiResponse,
@@ -17,24 +18,72 @@ export const workoutLogService = {
     sortBy?: string;
     sortDirection?: 'asc' | 'desc';
   }): Promise<PageResponse<WorkoutLogResponse>> => {
-    const response = await api.get<ApiResponse<PageResponse<WorkoutLogResponse>>>('/api/v1/workout-logs', {
-      params,
-    });
+    type ApiLog = Omit<
+      WorkoutLogResponse,
+      'logDate' | 'setsCompleted' | 'repsCompleted'
+    > & {
+      date: string;
+      actualSets: number;
+      actualReps: number;
+      actualWeight?: number;
+      observation?: string;
+    };
+
+    const response = await api.get<ApiResponse<ApiLog[]>>(
+      '/api/v1/workout-logs',
+      {
+        params: {
+          memberId: params?.memberId,
+        },
+      }
+    );
+
+    const logs = response.data.data
+      .map((item) => ({
+        ...item,
+        logDate: item.date,
+        setsCompleted: item.actualSets,
+        repsCompleted: item.actualReps,
+        weightUsed: item.actualWeight,
+        notes: item.observation,
+      }))
+      .filter(
+        (item) =>
+          !params?.exerciseId ||
+          item.exerciseId === params.exerciseId
+      );
+
+    return toPage(logs, params);
+  },
+
+  getById: async (
+    id: number
+  ): Promise<WorkoutLogResponse> => {
+    const response = await api.get<
+      ApiResponse<WorkoutLogResponse>
+    >(`/api/v1/workout-logs/${id}`);
+
     return response.data.data;
   },
 
-  getById: async (id: number): Promise<WorkoutLogResponse> => {
-    const response = await api.get<ApiResponse<WorkoutLogResponse>>(`/api/v1/workout-logs/${id}`);
+  create: async (
+    data: CreateWorkoutLogRequest
+  ): Promise<WorkoutLogResponse> => {
+    const response = await api.post<
+      ApiResponse<WorkoutLogResponse>
+    >('/api/v1/workout-logs', data);
+
     return response.data.data;
   },
 
-  create: async (data: CreateWorkoutLogRequest): Promise<WorkoutLogResponse> => {
-    const response = await api.post<ApiResponse<WorkoutLogResponse>>('/api/v1/workout-logs', data);
-    return response.data.data;
-  },
+  update: async (
+    id: number,
+    data: UpdateWorkoutLogRequest
+  ): Promise<WorkoutLogResponse> => {
+    const response = await api.put<
+      ApiResponse<WorkoutLogResponse>
+    >(`/api/v1/workout-logs/${id}`, data);
 
-  update: async (id: number, data: UpdateWorkoutLogRequest): Promise<WorkoutLogResponse> => {
-    const response = await api.put<ApiResponse<WorkoutLogResponse>>(`/api/v1/workout-logs/${id}`, data);
     return response.data.data;
   },
 

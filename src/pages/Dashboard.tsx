@@ -286,9 +286,20 @@ export const Dashboard: React.FC = () => {
                       <Tooltip
                         contentStyle={{
                           backgroundColor: '#1E293B',
-                          borderColor: '#334155',
+                          border: '1px solid #334155',
                           borderRadius: '8px',
                           color: '#FFFFFF',
+                          padding: '10px 14px',
+                          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                        }}
+                        itemStyle={{
+                          color: '#FFFFFF',
+                          fontSize: '13px',
+                          fontWeight: 500,
+                        }}
+                        labelStyle={{
+                          color: '#FFFFFF',
+                          fontWeight: 600,
                         }}
                       />
                       <Legend verticalAlign="bottom" height={36} />

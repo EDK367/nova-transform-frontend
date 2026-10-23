@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { toast } from 'sonner';
+import { Target, Plus, Trash2 } from 'lucide-react';
+
 import { goalService } from '@/services/goal.service';
 import { memberService } from '@/services/member.service';
-import {
-  AssignMemberGoalRequest,
-  CreateGoalRequest,
-  GoalResponse,
-  MemberGoalResponse,
-} from '@/types';
+import type { AssignMemberGoalRequest, MemberGoalResponse } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,29 +19,17 @@ import { Modal } from '@/components/ui/modal';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { TableSkeleton } from '@/components/common/LoadingSkeleton';
 import { EmptyState } from '@/components/common/EmptyState';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { formatDate } from '@/lib/utils';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { toast } from 'sonner';
 import {
-  Target,
-  Plus,
-  Search,
-  Trash2,
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  TrendingUp,
-  CheckCircle2,
-} from 'lucide-react';
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
 
 const createGoalSchema = z.object({
   name: z.string().min(2, 'Nombre requerido').max(100),
   description: z.string().optional(),
-  category: z.string().min(1, 'Categoría requerida'),
 });
 
 type CreateGoalFormData = z.infer<typeof createGoalSchema>;
@@ -48,10 +37,6 @@ type CreateGoalFormData = z.infer<typeof createGoalSchema>;
 const assignGoalSchema = z.object({
   memberId: z.string().min(1, 'Selecciona un socio'),
   goalId: z.coerce.number().min(1, 'Selecciona un objetivo'),
-  targetDate: z.string().min(1, 'Fecha meta requerida'),
-  targetValue: z.coerce.number().min(0.1, 'Valor meta requerido'),
-  currentValue: z.coerce.number().min(0, 'Valor actual requerido'),
-  notes: z.string().optional(),
 });
 
 type AssignGoalFormData = z.infer<typeof assignGoalSchema>;
@@ -63,32 +48,47 @@ export const GoalsPage: React.FC = () => {
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<'assigned' | 'catalog'>('assigned');
-  const [page, setPage] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
   const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-  const [deletingMemberGoal, setDeletingMemberGoal] = useState<MemberGoalResponse | null>(null);
+  const [deletingMemberGoal, setDeletingMemberGoal] =
+    useState<MemberGoalResponse | null>(null);
 
-  const { data: memberGoalsData, isLoading: loadingMemberGoals } = useQuery({
-    queryKey: ['member-goals', page],
+  const {
+    data: memberGoalsData,
+    isLoading: loadingMemberGoals,
+    isError: memberGoalsError,
+  } = useQuery({
+    queryKey: ['member-goals', isClient ? user?.id : 'all'],
     queryFn: () =>
       goalService.getMemberGoals({
-        page,
-        size: 10,
+        page: 0,
+        size: 100,
         memberId: isClient ? user?.id : undefined,
-        sortBy: 'targetDate',
-        sortDirection: 'asc',
+        sortBy: 'createdAt',
+        sortDirection: 'desc',
       }),
   });
 
-  const { data: catalogGoalsData, isLoading: loadingCatalog } = useQuery({
+  const {
+    data: catalogGoalsData,
+    isLoading: loadingCatalog,
+    isError: catalogError,
+  } = useQuery({
     queryKey: ['goals-catalog'],
-    queryFn: () => goalService.getAllGoals({ page: 0, size: 50 }),
+    queryFn: () =>
+      goalService.getAllGoals({
+        page: 0,
+        size: 100,
+      }),
   });
 
   const { data: membersData } = useQuery({
     queryKey: ['members-select-goals'],
-    queryFn: () => memberService.getAll({ page: 0, size: 100 }),
+    queryFn: () =>
+      memberService.getAll({
+        page: 0,
+        size: 100,
+      }),
     enabled: isAssignModalOpen && !isClient,
   });
 
@@ -97,7 +97,6 @@ export const GoalsPage: React.FC = () => {
     defaultValues: {
       name: '',
       description: '',
-      category: 'Pérdida de Peso',
     },
   });
 
@@ -105,57 +104,81 @@ export const GoalsPage: React.FC = () => {
     resolver: zodResolver(assignGoalSchema),
     defaultValues: {
       memberId: isClient ? user?.id || '' : '',
-      goalId: 1,
-      targetDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      targetValue: 70,
-      currentValue: 80,
-      notes: '',
+      goalId: 0,
     },
   });
 
   const createCatalogMutation = useMutation({
-    mutationFn: (data: CreateGoalFormData) => goalService.createGoal(data),
+    mutationFn: (data: CreateGoalFormData) =>
+      goalService.createGoal({
+        name: data.name,
+        description: data.description || undefined,
+      }),
+
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['goals-catalog'] });
+      queryClient.invalidateQueries({
+        queryKey: ['goals-catalog'],
+      });
+
       setIsCatalogModalOpen(false);
       catalogForm.reset();
+
       toast.success('Objetivo añadido al catálogo');
+    },
+
+    onError: () => {
+      toast.error('No se pudo crear el objetivo');
     },
   });
 
   const assignMutation = useMutation({
     mutationFn: (data: AssignGoalFormData) => {
       const payload: AssignMemberGoalRequest = {
-        memberId: data.memberId,
+        memberId: isClient ? user?.id || data.memberId : data.memberId,
         goalId: data.goalId,
-        targetDate: data.targetDate,
-        targetValue: data.targetValue,
-        currentValue: data.currentValue,
-        notes: data.notes || undefined,
-        status: 'EN_PROGRESO',
       };
+
       return goalService.assignMemberGoal(payload);
     },
+
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['member-goals'] });
+      queryClient.invalidateQueries({
+        queryKey: ['member-goals'],
+      });
+
       setIsAssignModalOpen(false);
       assignForm.reset();
+
       toast.success('Objetivo asignado al socio');
+    },
+
+    onError: () => {
+      toast.error('No se pudo asignar el objetivo');
     },
   });
 
   const deleteMemberGoalMutation = useMutation({
-    mutationFn: (id: number) => goalService.deleteMemberGoal(id),
+    mutationFn: (id: number) =>
+      goalService.deleteMemberGoal(id),
+
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['member-goals'] });
+      queryClient.invalidateQueries({
+        queryKey: ['member-goals'],
+      });
+
       setDeletingMemberGoal(null);
+
       toast.success('Objetivo retirado');
+    },
+
+    onError: () => {
+      toast.error('No se pudo eliminar el objetivo');
     },
   });
 
-  const memberGoals = memberGoalsData?.content || [];
-  const catalogGoals = catalogGoalsData?.content || [];
-  const members = membersData?.content || [];
+  const memberGoals = memberGoalsData?.content ?? [];
+  const catalogGoals = catalogGoalsData?.content ?? [];
+  const members = membersData?.content ?? [];
 
   return (
     <div className="space-y-6">
@@ -164,10 +187,12 @@ export const GoalsPage: React.FC = () => {
           <h1 className="text-2xl font-extrabold text-foreground tracking-tight">
             Metas y Objetivos Físicos
           </h1>
+
           <p className="text-sm text-muted-foreground mt-1">
-            Definición y seguimiento de metas corporales, fuerza y marcas personales.
+            Catálogo de objetivos y asignación de metas a los socios.
           </p>
         </div>
+
         <div className="flex gap-2">
           {isAdminOrTrainer && (
             <Button
@@ -176,12 +201,16 @@ export const GoalsPage: React.FC = () => {
               className="gap-2"
             >
               <Plus className="h-4 w-4" />
-              <span>Nuevo Tipo de Meta</span>
+              Nuevo Tipo de Meta
             </Button>
           )}
-          <Button onClick={() => setIsAssignModalOpen(true)} className="gap-2">
+
+          <Button
+            onClick={() => setIsAssignModalOpen(true)}
+            className="gap-2"
+          >
             <Target className="h-4 w-4" />
-            <span>Fijar Objetivo</span>
+            Fijar Objetivo
           </Button>
         </div>
       </div>
@@ -191,17 +220,18 @@ export const GoalsPage: React.FC = () => {
           onClick={() => setActiveTab('assigned')}
           className={`py-3 px-5 text-sm font-semibold border-b-2 transition-colors ${
             activeTab === 'assigned'
-              ? 'border-emerald-500 text-emerald-400'
+              ? 'border-emerald-500 text-emerald-500'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
           Objetivos de Socios
         </button>
+
         <button
           onClick={() => setActiveTab('catalog')}
           className={`py-3 px-5 text-sm font-semibold border-b-2 transition-colors ${
             activeTab === 'catalog'
-              ? 'border-emerald-500 text-emerald-400'
+              ? 'border-emerald-500 text-emerald-500'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -213,18 +243,25 @@ export const GoalsPage: React.FC = () => {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle>Metas Establecidas</CardTitle>
+
             <CardDescription>
-              Progreso individual respecto al valor meta propuesto
+              Objetivos asignados a los socios del gimnasio.
             </CardDescription>
           </CardHeader>
+
           <CardContent className="p-0">
             {loadingMemberGoals ? (
-              <TableSkeleton rows={5} columns={6} />
+              <TableSkeleton rows={5} columns={3} />
+            ) : memberGoalsError ? (
+              <p className="p-6 text-sm text-red-500">
+                No se pudieron cargar los objetivos.
+                Revisa la conexión con el backend.
+              </p>
             ) : memberGoals.length === 0 ? (
               <EmptyState
                 icon={Target}
                 title="No hay objetivos fijados"
-                description="Aún no se han configurado metas físicas para este periodo."
+                description="Todavía no hay objetivos asignados a los socios."
                 actionText="Fijar Nuevo Objetivo"
                 onAction={() => setIsAssignModalOpen(true)}
               />
@@ -233,56 +270,43 @@ export const GoalsPage: React.FC = () => {
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-border bg-secondary/30 text-xs text-muted-foreground uppercase font-semibold">
-                      <th className="py-3 px-4">Socio</th>
-                      <th className="py-3 px-4">Objetivo</th>
-                      <th className="py-3 px-4">Valor Actual</th>
-                      <th className="py-3 px-4">Valor Meta</th>
-                      <th className="py-3 px-4">Fecha Meta</th>
-                      <th className="py-3 px-4">Estado</th>
-                      <th className="py-3 px-4 text-right">Acciones</th>
+                      <th className="py-3 px-4">
+                        Socio
+                      </th>
+
+                      <th className="py-3 px-4">
+                        Objetivo
+                      </th>
+
+                      <th className="py-3 px-4 text-right">
+                        Acciones
+                      </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y border-border/60">
+
+                  <tbody className="divide-y divide-border/60">
                     {memberGoals.map((mg) => (
-                      <tr key={mg.id} className="hover:bg-secondary/40 transition-colors">
+                      <tr
+                        key={mg.id}
+                        className="hover:bg-secondary/40 transition-colors"
+                      >
                         <td className="py-3.5 px-4 font-semibold text-foreground">
                           {mg.memberName || 'Socio'}
                         </td>
-                        <td className="py-3.5 px-4">
-                          <p className="font-semibold text-foreground">{mg.goalName || 'Meta'}</p>
-                          {mg.notes && (
-                            <p className="text-xs text-muted-foreground italic truncate max-w-xs">
-                              "{mg.notes}"
-                            </p>
-                          )}
+
+                        <td className="py-3.5 px-4 font-medium text-foreground">
+                          {mg.goalName || 'Objetivo'}
                         </td>
-                        <td className="py-3.5 px-4 font-mono font-medium text-foreground">
-                          {mg.currentValue != null ? mg.currentValue : '-'}
-                        </td>
-                        <td className="py-3.5 px-4 font-mono font-bold text-emerald-400">
-                          {mg.targetValue != null ? mg.targetValue : '-'}
-                        </td>
-                        <td className="py-3.5 px-4 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-1.5">
-                            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span>{formatDate(mg.targetDate)}</span>
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <Badge
-                            variant={mg.status === 'COMPLETADO' ? 'default' : 'secondary'}
-                            className="text-xs"
-                          >
-                            {mg.status || 'EN_PROGRESO'}
-                          </Badge>
-                        </td>
+
                         <td className="py-3.5 px-4 text-right">
                           <Button
                             size="sm"
                             variant="ghost"
                             className="text-red-400 hover:text-red-500 hover:bg-red-500/10"
-                            onClick={() => setDeletingMemberGoal(mg)}
-                            title="Eliminar meta"
+                            onClick={() =>
+                              setDeletingMemberGoal(mg)
+                            }
+                            title="Eliminar asignación"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -298,45 +322,67 @@ export const GoalsPage: React.FC = () => {
       ) : (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle>Catálogo de Tipos de Objetivos</CardTitle>
+            <CardTitle>
+              Catálogo de Tipos de Objetivos
+            </CardTitle>
+
             <CardDescription>
-              Categorías predefinidas para asignación rápida
+              Objetivos disponibles para asignar a los socios.
             </CardDescription>
           </CardHeader>
+
           <CardContent className="p-0">
             {loadingCatalog ? (
-              <TableSkeleton rows={4} columns={4} />
+              <TableSkeleton rows={4} columns={3} />
+            ) : catalogError ? (
+              <p className="p-6 text-sm text-red-500">
+                No se pudo cargar el catálogo de objetivos.
+              </p>
             ) : catalogGoals.length === 0 ? (
               <EmptyState
                 icon={Target}
                 title="Catálogo vacío"
-                description="No hay tipos de objetivos predefinidos."
+                description="No hay tipos de objetivos registrados."
                 actionText="Crear Tipo de Objetivo"
-                onAction={() => setIsCatalogModalOpen(true)}
+                onAction={() =>
+                  setIsCatalogModalOpen(true)
+                }
               />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-border bg-secondary/30 text-xs text-muted-foreground uppercase font-semibold">
-                      <th className="py-3 px-4">ID</th>
-                      <th className="py-3 px-4">Nombre del Objetivo</th>
-                      <th className="py-3 px-4">Categoría</th>
-                      <th className="py-3 px-4">Descripción</th>
+                      <th className="py-3 px-4">
+                        ID
+                      </th>
+
+                      <th className="py-3 px-4">
+                        Nombre del Objetivo
+                      </th>
+
+                      <th className="py-3 px-4">
+                        Descripción
+                      </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y border-border/60">
-                    {catalogGoals.map((cg) => (
-                      <tr key={cg.id} className="hover:bg-secondary/40 transition-colors">
-                        <td className="py-3.5 px-4 font-mono font-medium text-foreground">#{cg.id}</td>
-                        <td className="py-3.5 px-4 font-semibold text-foreground">{cg.name}</td>
-                        <td className="py-3.5 px-4">
-                          <Badge variant="outline" className="text-xs">
-                            {cg.category || 'General'}
-                          </Badge>
+
+                  <tbody className="divide-y divide-border/60">
+                    {catalogGoals.map((goal) => (
+                      <tr
+                        key={goal.id}
+                        className="hover:bg-secondary/40 transition-colors"
+                      >
+                        <td className="py-3.5 px-4 font-mono text-foreground">
+                          #{goal.id}
                         </td>
-                        <td className="py-3.5 px-4 text-xs text-muted-foreground">
-                          {cg.description || 'Sin descripción'}
+
+                        <td className="py-3.5 px-4 font-semibold text-foreground">
+                          {goal.name}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-muted-foreground">
+                          {goal.description || 'Sin descripción'}
                         </td>
                       </tr>
                     ))}
@@ -351,41 +397,52 @@ export const GoalsPage: React.FC = () => {
       <Modal
         isOpen={isCatalogModalOpen}
         onClose={() => setIsCatalogModalOpen(false)}
-        title="Crear Tipo de Objetivo en Catálogo"
+        title="Crear Tipo de Objetivo"
       >
-        <form onSubmit={catalogForm.handleSubmit((d) => createCatalogMutation.mutate(d))} className="space-y-4">
+        <form
+          onSubmit={catalogForm.handleSubmit((data) =>
+            createCatalogMutation.mutate(data)
+          )}
+          className="space-y-4"
+        >
           <div>
-            <Label required>Nombre del Objetivo</Label>
+            <Label required>
+              Nombre del Objetivo
+            </Label>
+
             <Input
-              placeholder="ej. Reducción % Grasa Corporal, 1RM Sentadilla"
-              error={catalogForm.formState.errors.name?.message}
+              placeholder="Ej. Aumentar masa muscular"
+              error={
+                catalogForm.formState.errors.name?.message
+              }
               {...catalogForm.register('name')}
             />
           </div>
 
           <div>
-            <Label required>Categoría</Label>
-            <Select {...catalogForm.register('category')}>
-              <option value="Composición Corporal">Composición Corporal</option>
-              <option value="Fuerza">Fuerza y Rendimiento</option>
-              <option value="Resistencia">Resistencia Cardiovascular</option>
-              <option value="Salud">Salud General</option>
-            </Select>
-          </div>
-
-          <div>
             <Label>Descripción</Label>
+
             <Textarea
-              placeholder="Criterios de medición y lineamientos de éxito..."
+              placeholder="Descripción del objetivo"
               {...catalogForm.register('description')}
             />
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-border">
-            <Button type="button" variant="outline" onClick={() => setIsCatalogModalOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                setIsCatalogModalOpen(false)
+              }
+            >
               Cancelar
             </Button>
-            <Button type="submit" isLoading={createCatalogMutation.isPending}>
+
+            <Button
+              type="submit"
+              isLoading={createCatalogMutation.isPending}
+            >
               Guardar Tipo
             </Button>
           </div>
@@ -395,64 +452,89 @@ export const GoalsPage: React.FC = () => {
       <Modal
         isOpen={isAssignModalOpen}
         onClose={() => setIsAssignModalOpen(false)}
-        title="Fijar Meta de Entrenamiento para Socio"
+        title="Asignar Objetivo a Socio"
       >
-        <form onSubmit={assignForm.handleSubmit((d) => assignMutation.mutate(d))} className="space-y-4">
+        <form
+          onSubmit={assignForm.handleSubmit((data) =>
+            assignMutation.mutate(data)
+          )}
+          className="space-y-4"
+        >
           {!isClient && (
             <div>
               <Label required>Socio</Label>
+
               <Select {...assignForm.register('memberId')}>
-                <option value="">Selecciona socio...</option>
-                {members.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.firstName} {m.lastName} (@{m.username})
+                <option value="">
+                  Selecciona un socio...
+                </option>
+
+                {members.map((member) => (
+                  <option
+                    key={member.id}
+                    value={member.id}
+                  >
+                    {member.firstName} {member.lastName}
+                    {' '}(@{member.username})
                   </option>
                 ))}
               </Select>
+
+              {assignForm.formState.errors.memberId && (
+                <p className="text-xs text-red-500 mt-1">
+                  {
+                    assignForm.formState.errors.memberId
+                      .message
+                  }
+                </p>
+              )}
             </div>
           )}
 
           <div>
             <Label required>Objetivo</Label>
+
             <Select {...assignForm.register('goalId')}>
-              {catalogGoals.map((cg) => (
-                <option key={cg.id} value={cg.id}>
-                  {cg.name} ({cg.category})
+              <option value="0">
+                Selecciona un objetivo...
+              </option>
+
+              {catalogGoals.map((goal) => (
+                <option
+                  key={goal.id}
+                  value={goal.id}
+                >
+                  {goal.name}
                 </option>
               ))}
             </Select>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label required>Valor Actual</Label>
-              <Input type="number" step="0.1" {...assignForm.register('currentValue')} />
-            </div>
-            <div>
-              <Label required>Valor Meta a Alcanzar</Label>
-              <Input type="number" step="0.1" {...assignForm.register('targetValue')} />
-            </div>
-          </div>
-
-          <div>
-            <Label required>Fecha Límite Estimada</Label>
-            <Input type="date" {...assignForm.register('targetDate')} />
-          </div>
-
-          <div>
-            <Label>Notas o Plan de Acción</Label>
-            <Input
-              placeholder="Déficit calórico de 300 kcal, 4 sesiones de pesas semanales..."
-              {...assignForm.register('notes')}
-            />
+            {assignForm.formState.errors.goalId && (
+              <p className="text-xs text-red-500 mt-1">
+                {
+                  assignForm.formState.errors.goalId
+                    .message
+                }
+              </p>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-border">
-            <Button type="button" variant="outline" onClick={() => setIsAssignModalOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                setIsAssignModalOpen(false)
+              }
+            >
               Cancelar
             </Button>
-            <Button type="submit" isLoading={assignMutation.isPending}>
-              Establecer Meta
+
+            <Button
+              type="submit"
+              isLoading={assignMutation.isPending}
+            >
+              Asignar Objetivo
             </Button>
           </div>
         </form>
@@ -460,12 +542,22 @@ export const GoalsPage: React.FC = () => {
 
       <ConfirmDialog
         isOpen={!!deletingMemberGoal}
-        onClose={() => setDeletingMemberGoal(null)}
-        onConfirm={() => deletingMemberGoal && deleteMemberGoalMutation.mutate(deletingMemberGoal.id)}
-        title="Eliminar Meta"
-        message="¿Estás seguro de que deseas eliminar este objetivo asignado?"
+        onClose={() =>
+          setDeletingMemberGoal(null)
+        }
+        onConfirm={() => {
+          if (deletingMemberGoal) {
+            deleteMemberGoalMutation.mutate(
+              deletingMemberGoal.id
+            );
+          }
+        }}
+        title="Eliminar Objetivo Asignado"
+        message="¿Seguro que deseas quitar este objetivo del socio?"
         confirmText="Eliminar"
-        isLoading={deleteMemberGoalMutation.isPending}
+        isLoading={
+          deleteMemberGoalMutation.isPending
+        }
       />
     </div>
   );
