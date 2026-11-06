@@ -1,21 +1,54 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { AccessPolicy, PermissionCode } from '@/security/permissions';
+import { getRoutePolicyByPath } from '@/security/route-policies';
 import { RoleName } from '@/types';
-import { Loader2, ShieldAlert } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  policy?: AccessPolicy;
   allowedRoles?: RoleName[];
+  requiredPermissions?: PermissionCode[];
+  requireAllPermissions?: boolean;
+  requireSuperAdminOnly?: boolean;
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
+  policy,
   allowedRoles,
+  requiredPermissions,
+  requireAllPermissions = false,
+  requireSuperAdminOnly = false,
 }) => {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, isSuperAdmin, checkPolicy } = useAuth();
   const location = useLocation();
+
+  // Resuelve la política explícita o automáticamente desde la tabla central ROUTE_POLICIES
+  const routePolicy = policy ?? getRoutePolicyByPath(location.pathname);
+
+  const effectivePolicy: AccessPolicy = {
+    roles: allowedRoles ?? routePolicy?.roles,
+    permissions: requiredPermissions ?? routePolicy?.permissions,
+    requireAllPermissions: requireAllPermissions || routePolicy?.requireAllPermissions,
+    superAdminOnly: requireSuperAdminOnly || routePolicy?.superAdminOnly,
+  };
+
+  const isAuthorized =
+    Boolean(isAuthenticated && user) &&
+    (!effectivePolicy.superAdminOnly || isSuperAdmin) &&
+    checkPolicy(effectivePolicy);
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user && !isAuthorized) {
+      toast.error('Acceso denegado: no tienes autorización para ingresar a esta ruta.', {
+        id: `unauthorized-${location.pathname}`,
+      });
+    }
+  }, [isLoading, isAuthenticated, user, isAuthorized, location.pathname]);
 
   if (isLoading) {
     return (
@@ -32,21 +65,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(user.roleName)) {
-    return (
-      <div className="flex flex-col items-center justify-center p-12 text-center my-12 bg-card rounded-2xl border border-border">
-        <div className="h-16 w-16 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center mb-4">
-          <ShieldAlert className="h-8 w-8" />
-        </div>
-        <h2 className="text-xl font-bold text-foreground mb-2">Acceso No Autorizado</h2>
-        <p className="text-sm text-muted-foreground max-w-md mb-6">
-          Tu rol actual (<span className="text-primary font-semibold">{user.roleName}</span>) no tiene los permisos necesarios para acceder a este módulo.
-        </p>
-        <Button onClick={() => window.history.back()} variant="outline">
-          Volver atrás
-        </Button>
-      </div>
-    );
+  if (!isAuthorized) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;

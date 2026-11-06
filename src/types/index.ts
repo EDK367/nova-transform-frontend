@@ -21,13 +21,53 @@ export interface ErrorResponse {
   timestamp: string;
 }
 
-// Roles
-export type RoleName = 'ADMIN' | 'ENTRENADOR' | 'RECEPCIONISTA' | 'CLIENTE';
+// Roles & Permissions
+export type RoleName = 'SUPER_ADMIN' | 'ADMIN' | 'ENTRENADOR' | 'RECEPCIONISTA' | 'CLIENTE' | (string & {});
+
+export interface PermissionResponse {
+  id: number;
+  code: string;
+  name: string;
+  module: string;
+  description?: string;
+}
+
+export interface CreatePermissionRequest {
+  code: string;
+  name: string;
+  module: string;
+  description?: string;
+}
+
+export interface UpdatePermissionRequest {
+  code: string;
+  name: string;
+  module: string;
+  description?: string;
+}
 
 export interface RoleResponse {
   id: number;
   name: RoleName;
   description: string;
+  systemRole: boolean;
+  permissions: PermissionResponse[];
+}
+
+export interface CreateRoleRequest {
+  name: string;
+  description?: string;
+  permissionIds?: number[];
+}
+
+export interface UpdateRoleRequest {
+  name: string;
+  description?: string;
+  permissionIds?: number[];
+}
+
+export interface AssignRolePermissionsRequest {
+  permissionIds: number[];
 }
 
 // User types
@@ -38,7 +78,9 @@ export interface UserResponse {
   email: string;
   phone?: string;
   username: string;
+  roleId?: number;
   roleName: RoleName;
+  permissions?: string[];
   branchId?: number;
   active: boolean;
 }
@@ -76,6 +118,8 @@ export interface UpdateUserRequest {
   phone?: string;
   username: string;
   branchId?: number;
+  roleId?: number;
+  active?: boolean;
 }
 
 // Member types
@@ -132,6 +176,8 @@ export interface MeResponse {
   username: string;
   subject: string;
   groups: string[];
+  role?: RoleName;
+  permissions?: string[];
   name?: string;
   email?: string;
 }
@@ -690,9 +736,11 @@ export interface UpdateExerciseRequest {
 export interface RoutineExerciseResponse {
   id: number;
   routineId: number;
+  routineName?: string;
   exerciseId: number;
   exerciseName?: string;
   muscleGroup?: string;
+  trainingDay?: string;
   sets: number;
   repetitions?: number;
   restSeconds?: number;
@@ -702,15 +750,18 @@ export interface RoutineExerciseResponse {
 
 export interface AddRoutineExerciseRequest {
   exerciseId: number;
+  trainingDay?: string;
   sets: number;
   repetitions?: number;
   restSeconds?: number;
+  weight?: number;
   notes?: string;
   orderIndex?: number;
 }
 
 export interface RoutineResponse {
   id: number;
+  assignmentId?: number;
   trainerId?: string;
   trainerName?: string;
   memberId?: string;
@@ -725,6 +776,7 @@ export interface RoutineResponse {
 }
 
 export interface CreateRoutineRequest {
+  assignmentId?: number;
   trainerId?: string;
   memberId?: string;
   name: string;
@@ -735,6 +787,7 @@ export interface CreateRoutineRequest {
 }
 
 export interface UpdateRoutineRequest {
+  assignmentId?: number;
   trainerId?: string;
   memberId?: string;
   name?: string;
@@ -750,6 +803,7 @@ export interface WorkoutLogResponse {
   memberName?: string;
   routineId?: number;
   routineName?: string;
+  routineExerciseId?: number;
   exerciseId: number;
   exerciseName?: string;
   logDate: string;
@@ -764,6 +818,7 @@ export interface WorkoutLogResponse {
 export interface CreateWorkoutLogRequest {
   memberId: string;
   routineId?: number;
+  routineExerciseId?: number;
   exerciseId: number;
   logDate?: string;
   setsCompleted: number;
