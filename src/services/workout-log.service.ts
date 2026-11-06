@@ -69,9 +69,23 @@ export const workoutLogService = {
   create: async (
     data: CreateWorkoutLogRequest
   ): Promise<WorkoutLogResponse> => {
+    const payload = {
+      memberId: data.memberId,
+      routineExerciseId: data.routineExerciseId ?? data.exerciseId,
+      date: data.logDate
+        ? data.logDate.includes('T')
+          ? new Date(data.logDate).toISOString()
+          : `${data.logDate}T12:00:00Z`
+        : new Date().toISOString(),
+      actualSets: data.setsCompleted,
+      actualReps: data.repsCompleted,
+      actualWeight: data.weightUsed,
+      observation: data.notes,
+    };
+
     const response = await api.post<
       ApiResponse<WorkoutLogResponse>
-    >('/api/v1/workout-logs', data);
+    >('/api/v1/workout-logs', payload);
 
     return response.data.data;
   },

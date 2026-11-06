@@ -69,9 +69,27 @@ export const physicalMeasurementService = {
   create: async (
     data: CreatePhysicalMeasurementRequest
   ): Promise<PhysicalMeasurementResponse> => {
+    const payload = {
+      memberId: data.memberId,
+      date: data.measurementDate,
+      weight: data.weightKg,
+      height:
+        data.heightCm != null
+          ? data.heightCm > 3
+            ? Number((data.heightCm / 100).toFixed(2))
+            : data.heightCm
+          : undefined,
+      bodyFatPercentage: data.bodyFatPercentage,
+      muscleMass: data.muscleMassKg,
+      waist: data.waistCm,
+      arm: data.armCm,
+      leg: data.thighCm,
+      observations: data.notes,
+    };
+
     const response = await api.post<
       ApiResponse<PhysicalMeasurementResponse>
-    >('/api/v1/physical-measurements', data);
+    >('/api/v1/physical-measurements', payload);
 
     return response.data.data;
   },
@@ -80,9 +98,26 @@ export const physicalMeasurementService = {
     id: number,
     data: UpdatePhysicalMeasurementRequest
   ): Promise<PhysicalMeasurementResponse> => {
+    const payload = {
+      date: data.measurementDate,
+      weight: data.weightKg,
+      height:
+        data.heightCm != null
+          ? data.heightCm > 3
+            ? Number((data.heightCm / 100).toFixed(2))
+            : data.heightCm
+          : undefined,
+      bodyFatPercentage: data.bodyFatPercentage,
+      muscleMass: data.muscleMassKg,
+      waist: data.waistCm,
+      arm: data.armCm,
+      leg: data.thighCm,
+      observations: data.notes,
+    };
+
     const response = await api.put<
       ApiResponse<PhysicalMeasurementResponse>
-    >(`/api/v1/physical-measurements/${id}`, data);
+    >(`/api/v1/physical-measurements/${id}`, payload);
 
     return response.data.data;
   },

@@ -54,9 +54,17 @@ export const trainerAssignmentService = {
   create: async (
     data: CreateTrainerAssignmentRequest
   ): Promise<TrainerAssignmentResponse> => {
+    const payload = {
+      trainerId: data.trainerId,
+      memberId: data.memberId,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      reason: data.notes,
+    };
+
     const response = await api.post<
       ApiResponse<TrainerAssignmentResponse>
-    >('/api/v1/trainer-assignments', data);
+    >('/api/v1/trainer-assignments', payload);
 
     return response.data.data;
   },
@@ -65,9 +73,16 @@ export const trainerAssignmentService = {
     id: number,
     data: UpdateTrainerAssignmentRequest
   ): Promise<TrainerAssignmentResponse> => {
+    const payload = {
+      startDate: data.startDate,
+      endDate: data.endDate,
+      active: data.active,
+      reason: data.notes,
+    };
+
     const response = await api.put<
       ApiResponse<TrainerAssignmentResponse>
-    >(`/api/v1/trainer-assignments/${id}`, data);
+    >(`/api/v1/trainer-assignments/${id}`, payload);
 
     return response.data.data;
   },
