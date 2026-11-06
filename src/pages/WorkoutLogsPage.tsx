@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { workoutLogService } from '@/services/workout-log.service';
-import { exerciseService } from '@/services/exercise.service';
+import { routineService } from '@/services/routine.service';
 import { memberService } from '@/services/member.service';
 import {
   CreateWorkoutLogRequest,
@@ -9,6 +9,7 @@ import {
   WorkoutLogResponse,
 } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { PERMISSIONS } from '@/security/permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,8 +38,8 @@ import {
 } from 'lucide-react';
 
 const workoutLogSchema = z.object({
-  memberId: z.string().min(1, 'Selecciona socio'),
-  exerciseId: z.coerce.number().min(1, 'Selecciona ejercicio'),
+  memberId: z.string().min(1, 'Selecciona cliente'),
+  exerciseId: z.coerce.number().min(1, 'Selecciona un ejercicio de rutina'),
   logDate: z.string().min(1, 'Fecha requerida'),
   setsCompleted: z.coerce.number().min(1, 'Series mínimas: 1'),
   repsCompleted: z.coerce.number().min(1, 'Repeticiones mínimas: 1'),
@@ -50,8 +51,15 @@ const workoutLogSchema = z.object({
 type WorkoutLogFormData = z.infer<typeof workoutLogSchema>;
 
 export const WorkoutLogsPage: React.FC = () => {
-  const { user, hasRole } = useAuth();
-  const isAdminOrTrainer = hasRole('ADMIN', 'ENTRENADOR');
+  const { user, hasRole, checkPolicy } = useAuth();
+  const isAdminOrTrainer = checkPolicy({
+    permissions: [PERMISSIONS.WORKOUT_LOGS_MANAGE],
+    roles: ['ADMIN', 'ENTRENADOR'],
+  });
+  const canCreateLog = checkPolicy({
+    permissions: [PERMISSIONS.WORKOUT_LOGS_MANAGE],
+    roles: ['ADMIN', 'ENTRENADOR', 'CLIENTE'],
+  });
   const isClient = hasRole('CLIENTE');
   const queryClient = useQueryClient();
 
@@ -61,19 +69,20 @@ export const WorkoutLogsPage: React.FC = () => {
   const [deletingLog, setDeletingLog] = useState<WorkoutLogResponse | null>(null);
 
   const { data: logsData, isLoading } = useQuery({
-    queryKey: ['workout-logs', page],
+    queryKey: ['workout-logs', page, isClient ? user?.id : 'all'],
     queryFn: () =>
       workoutLogService.getAll({
         page,
         size: 10,
+        memberId: isClient ? user?.id : undefined,
         sortBy: 'logDate',
         sortDirection: 'desc',
       }),
   });
 
-  const { data: exercisesData } = useQuery({
-    queryKey: ['exercises-select-logs'],
-    queryFn: () => exerciseService.getAll({ page: 0, size: 200 }),
+  const { data: routineExercisesData } = useQuery({
+    queryKey: ['routine-exercises-select-logs'],
+    queryFn: () => routineService.getExercises(),
     enabled: isModalOpen,
   });
 
@@ -115,6 +124,7 @@ export const WorkoutLogsPage: React.FC = () => {
     mutationFn: (data: WorkoutLogFormData) => {
       const payload: CreateWorkoutLogRequest = {
         memberId: data.memberId,
+        routineExerciseId: data.exerciseId,
         exerciseId: data.exerciseId,
         logDate: data.logDate,
         setsCompleted: data.setsCompleted,
@@ -151,7 +161,7 @@ export const WorkoutLogsPage: React.FC = () => {
     );
   });
 
-  const exercises = exercisesData?.content || [];
+  const routineExercises = routineExercisesData || [];
   const members = membersData?.content || [];
 
   return (
@@ -159,16 +169,20 @@ export const WorkoutLogsPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-foreground tracking-tight">
-            Bitácora de Entrenamientos
+            {isClient ? 'Mi Bitácora de Entrenamientos' : 'Bitácora de Entrenamientos'}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Registro y control de levantamientos, repeticiones, peso y esfuerzo percibido (RPE).
+            {isClient
+              ? 'Tu registro personal de series, repeticiones, peso levantado y esfuerzo percibido (RPE).'
+              : 'Registro y control de levantamientos, repeticiones, peso y esfuerzo percibido (RPE) de los clientes.'}
           </p>
         </div>
-        <Button onClick={openCreateModal} className="gap-2">
-          <Plus className="h-4 w-4" />
-          <span>Registrar Entrenamiento</span>
-        </Button>
+        {canCreateLog && (
+          <Button onClick={openCreateModal} className="gap-2">
+            <Plus className="h-4 w-4" />
+            <span>Registrar Entrenamiento</span>
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -176,7 +190,7 @@ export const WorkoutLogsPage: React.FC = () => {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por ejercicio, socio o notas..."
+              placeholder="Buscar por ejercicio, cliente o notas..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
@@ -209,7 +223,7 @@ export const WorkoutLogsPage: React.FC = () => {
                 <thead>
                   <tr className="border-b border-border bg-secondary/30 text-xs text-muted-foreground uppercase font-semibold">
                     <th className="py-3 px-4">Fecha</th>
-                    <th className="py-3 px-4">Socio</th>
+                    <th className="py-3 px-4">Cliente</th>
                     <th className="py-3 px-4">Ejercicio</th>
                     <th className="py-3 px-4">Series & Reps</th>
                     <th className="py-3 px-4">Carga / Peso</th>
@@ -227,7 +241,7 @@ export const WorkoutLogsPage: React.FC = () => {
                         </div>
                       </td>
                       <td className="py-3.5 px-4 font-semibold text-foreground">
-                        {l.memberName || 'Socio'}
+                        {l.memberName || 'Cliente'}
                       </td>
                       <td className="py-3.5 px-4">
                         <p className="font-semibold text-foreground text-sm">
@@ -259,7 +273,7 @@ export const WorkoutLogsPage: React.FC = () => {
                         )}
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        {(isAdminOrTrainer || isClient) && (
+                        {isAdminOrTrainer && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -314,9 +328,9 @@ export const WorkoutLogsPage: React.FC = () => {
         <form onSubmit={form.handleSubmit((d) => createMutation.mutate(d))} className="space-y-4">
           {!isClient && (
             <div>
-              <Label required>Socio</Label>
+              <Label required>Cliente</Label>
               <Select {...form.register('memberId')}>
-                <option value="">Selecciona socio...</option>
+                <option value="">Selecciona cliente...</option>
                 {members.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.firstName} {m.lastName} (@{m.username})
@@ -327,11 +341,12 @@ export const WorkoutLogsPage: React.FC = () => {
           )}
 
           <div>
-            <Label required>Ejercicio</Label>
+            <Label required>Ejercicio de Rutina</Label>
             <Select {...form.register('exerciseId')}>
-              {exercises.map((ex) => (
-                <option key={ex.id} value={ex.id}>
-                  {ex.name} ({ex.muscleGroup})
+              <option value="">Selecciona ejercicio de rutina...</option>
+              {routineExercises.map((re) => (
+                <option key={re.id} value={re.id}>
+                  {re.exerciseName} — {re.routineName || `Rutina #${re.routineId}`} ({re.sets}×{re.repetitions || 10})
                 </option>
               ))}
             </Select>

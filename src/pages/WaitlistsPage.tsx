@@ -65,7 +65,7 @@ export const WaitlistsPage: React.FC = () => {
         <p className="text-sm text-muted-foreground mt-1">
           {isClient
             ? 'Monitorea tus posiciones en lista de espera para clases con aforo completo.'
-            : 'Supervisa los socios en espera de cupo disponible por cada clase programada.'}
+            : 'Supervisa los clientes en espera de cupo disponible por cada clase programada.'}
         </p>
       </div>
 
@@ -98,7 +98,7 @@ export const WaitlistsPage: React.FC = () => {
             {isClient
               ? 'Mis Solicitudes en Espera'
               : selectedClassId
-              ? 'Socios en Fila de Espera'
+              ? 'Clientes en Fila de Espera'
               : 'Selecciona una clase'}
           </CardTitle>
           <CardDescription>
@@ -121,7 +121,7 @@ export const WaitlistsPage: React.FC = () => {
               description={
                 isClient
                   ? 'No estás registrado en la lista de espera de ninguna sesión.'
-                  : 'Esta clase cuenta con lugares disponibles o no tiene socios esperando.'
+                  : 'Esta clase cuenta con lugares disponibles o no tiene clientes esperando.'
               }
             />
           ) : (
@@ -130,11 +130,11 @@ export const WaitlistsPage: React.FC = () => {
                 <thead>
                   <tr className="border-b border-border bg-secondary/30 text-xs text-muted-foreground uppercase font-semibold">
                     <th className="py-3 px-4">Posición</th>
-                    <th className="py-3 px-4">Socio</th>
+                    <th className="py-3 px-4">Cliente</th>
                     <th className="py-3 px-4">Clase / Sesión</th>
                     <th className="py-3 px-4">Fecha de Inscripción</th>
                     <th className="py-3 px-4">Notificación</th>
-                    <th className="py-3 px-4 text-right">Acción</th>
+                    {!isTrainer && <th className="py-3 px-4 text-right">Acción</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
@@ -167,18 +167,20 @@ export const WaitlistsPage: React.FC = () => {
                           {w.notified ? 'Notificado' : 'En espera'}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 text-right">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-red-400 hover:text-red-500 hover:bg-red-500/10 text-xs"
-                          onClick={() => setRemovingWaitlist(w)}
-                          title="Retirar de la lista de espera"
-                        >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          Retirar
-                        </Button>
-                      </td>
+                      {!isTrainer && (
+                        <td className="py-3.5 px-4 text-right">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-red-400 hover:text-red-500 hover:bg-red-500/10 text-xs"
+                            onClick={() => setRemovingWaitlist(w)}
+                            title="Retirar de la lista de espera"
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Retirar
+                          </Button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

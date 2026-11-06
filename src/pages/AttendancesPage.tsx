@@ -5,6 +5,7 @@ import { reportService } from '@/services/report.service';
 import { memberService } from '@/services/member.service';
 import { AttendanceResponse, CreateAttendanceRequest } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { PERMISSIONS } from '@/security/permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,7 +35,7 @@ import {
 
 const checkInSchema = z.object({
   branchId: z.coerce.number().min(1, 'Selecciona una sucursal'),
-  memberId: z.string().min(1, 'Selecciona un socio'),
+  memberId: z.string().min(1, 'Selecciona un cliente'),
   date: z.string().optional(),
   entryTime: z.string().optional(),
 });
@@ -42,8 +43,11 @@ const checkInSchema = z.object({
 type CheckInFormData = z.infer<typeof checkInSchema>;
 
 export const AttendancesPage: React.FC = () => {
-  const { user, hasRole } = useAuth();
-  const isAdminOrRecep = hasRole('ADMIN', 'RECEPCIONISTA');
+  const { user, hasRole, checkPolicy } = useAuth();
+  const isAdminOrRecep = checkPolicy({
+    permissions: [PERMISSIONS.ATTENDANCES_MANAGE],
+    roles: ['ADMIN', 'RECEPCIONISTA'],
+  });
   const isClient = hasRole('CLIENTE');
   const queryClient = useQueryClient();
 
@@ -56,9 +60,9 @@ export const AttendancesPage: React.FC = () => {
 
   // Queries
   const { data: attendancesData, isLoading } = useQuery({
-    queryKey: ['attendances', page, selectedDate],
+    queryKey: ['attendances', page, selectedDate, isClient ? 'my' : 'all'],
     queryFn: () =>
-      isAdminOrRecep
+      !isClient
         ? attendanceService.getAll({
             page,
             size: 10,
@@ -78,7 +82,7 @@ export const AttendancesPage: React.FC = () => {
   const { data: membersList } = useQuery({
     queryKey: ['members-select'],
     queryFn: () => memberService.getAll({ page: 0, size: 100 }),
-    enabled: isAdminOrRecep,
+    enabled: isCheckInOpen && isAdminOrRecep,
   });
 
   // Check-In Form
@@ -165,18 +169,20 @@ export const AttendancesPage: React.FC = () => {
           <p className="text-sm text-muted-foreground mt-1">
             {isClient
               ? 'Historial de tus ingresos y tiempo de entrenamiento en las instalaciones.'
-              : 'Registro en tiempo real de entradas y salidas de socios en torniquetes y recepción.'}
+              : 'Registro en tiempo real de entradas y salidas de clientes en torniquetes y recepción.'}
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={handleDownloadReportPdf}
-            className="gap-2"
-          >
-            <Download className="h-4 w-4" />
-            <span>Reporte PDF</span>
-          </Button>
+          {isAdminOrRecep && (
+            <Button
+              variant="outline"
+              onClick={handleDownloadReportPdf}
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              <span>Reporte PDF</span>
+            </Button>
+          )}
           {isAdminOrRecep && (
             <Button onClick={() => setIsCheckInOpen(true)} className="gap-2">
               <LogIn className="h-4 w-4" />
@@ -192,7 +198,7 @@ export const AttendancesPage: React.FC = () => {
           <div className="relative flex-1 w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nombre de socio o correo..."
+              placeholder="Buscar por nombre de cliente o correo..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
@@ -247,7 +253,7 @@ export const AttendancesPage: React.FC = () => {
                 <thead>
                   <tr className="border-b border-border bg-secondary/30 text-xs text-muted-foreground uppercase font-semibold">
                     <th className="py-3 px-4">Folio</th>
-                    <th className="py-3 px-4">Socio</th>
+                    <th className="py-3 px-4">Cliente</th>
                     <th className="py-3 px-4">Fecha</th>
                     <th className="py-3 px-4">Entrada</th>
                     <th className="py-3 px-4">Salida</th>
@@ -357,16 +363,16 @@ export const AttendancesPage: React.FC = () => {
         isOpen={isCheckInOpen}
         onClose={() => setIsCheckInOpen(false)}
         title="Registrar Entrada (Check-In)"
-        description="Registra el ingreso de un socio a las instalaciones del gimnasio."
+        description="Registra el ingreso de un cliente a las instalaciones del gimnasio."
       >
         <form onSubmit={checkInForm.handleSubmit(onCheckInSubmit)} className="space-y-4 py-2">
           <div>
-            <Label required>Socio</Label>
+            <Label required>Cliente</Label>
             <Select
               error={checkInForm.formState.errors.memberId?.message}
               {...checkInForm.register('memberId')}
             >
-              <option value="">Selecciona al socio que ingresa...</option>
+              <option value="">Selecciona al cliente que ingresa...</option>
               {membersList?.content?.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.firstName} {m.lastName} (@{m.username})

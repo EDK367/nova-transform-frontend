@@ -9,6 +9,7 @@ import {
   UpdateTrainerAssignmentRequest,
 } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { PERMISSIONS } from '@/security/permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,7 +39,7 @@ import {
 
 const assignmentSchema = z.object({
   trainerId: z.string().min(1, 'Selecciona un entrenador'),
-  memberId: z.string().min(1, 'Selecciona un socio'),
+  memberId: z.string().min(1, 'Selecciona un cliente'),
   startDate: z.string().min(1, 'Fecha de inicio requerida'),
   endDate: z.string().optional(),
   notes: z.string().optional(),
@@ -47,9 +48,16 @@ const assignmentSchema = z.object({
 type AssignmentFormData = z.infer<typeof assignmentSchema>;
 
 export const TrainerAssignmentsPage: React.FC = () => {
-  const { hasRole } = useAuth();
-  const isAdminOrTrainer = hasRole('ADMIN', 'ENTRENADOR');
-  const isAdmin = hasRole('ADMIN');
+  const { user, hasRole, checkPolicy } = useAuth();
+  const isClient = hasRole('CLIENTE');
+  const canCreateAssignment = checkPolicy({
+    permissions: [PERMISSIONS.ASSIGNMENTS_MANAGE],
+    roles: ['ADMIN', 'RECEPCIONISTA', 'ENTRENADOR'],
+  });
+  const isAdmin = checkPolicy({
+    permissions: [PERMISSIONS.ASSIGNMENTS_MANAGE],
+    roles: ['ADMIN'],
+  });
   const queryClient = useQueryClient();
 
   const [page, setPage] = useState(0);
@@ -58,11 +66,12 @@ export const TrainerAssignmentsPage: React.FC = () => {
   const [deletingAssignment, setDeletingAssignment] = useState<TrainerAssignmentResponse | null>(null);
 
   const { data: assignmentsData, isLoading } = useQuery({
-    queryKey: ['trainer-assignments', page],
+    queryKey: ['trainer-assignments', page, isClient ? user?.id : 'all'],
     queryFn: () =>
       trainerAssignmentService.getAll({
         page,
         size: 10,
+        memberId: isClient ? user?.id : undefined,
         sortBy: 'startDate',
         sortDirection: 'desc',
       }),
@@ -71,13 +80,13 @@ export const TrainerAssignmentsPage: React.FC = () => {
   const { data: trainersData } = useQuery({
     queryKey: ['trainers-select'],
     queryFn: () => trainerService.getAll({ page: 0, size: 100 }),
-    enabled: isModalOpen,
+    enabled: isModalOpen && canCreateAssignment,
   });
 
   const { data: membersData } = useQuery({
     queryKey: ['members-select-assignments'],
     queryFn: () => memberService.getAll({ page: 0, size: 100 }),
-    enabled: isModalOpen,
+    enabled: isModalOpen && canCreateAssignment,
   });
 
   const form = useForm<AssignmentFormData>({
@@ -116,7 +125,7 @@ export const TrainerAssignmentsPage: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trainer-assignments'] });
       setIsModalOpen(false);
-      toast.success('Entrenador asignado exitosamente al socio');
+      toast.success('Entrenador asignado exitosamente al cliente');
     },
   });
 
@@ -147,16 +156,18 @@ export const TrainerAssignmentsPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-foreground tracking-tight">
-            Asignaciones de Entrenador
+            {isClient ? 'Mi Entrenador Asignado' : 'Asignaciones de Entrenador'}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Vinculación de entrenadores personales con socios para seguimiento individual.
+            {isClient
+              ? 'Consulta el entrenador personal vinculado a tu cuenta para seguimiento individual.'
+              : 'Vinculación de entrenadores personales con clientes para seguimiento individual.'}
           </p>
         </div>
-        {isAdminOrTrainer && (
+        {canCreateAssignment && (
           <Button onClick={openCreateModal} className="gap-2">
             <Plus className="h-4 w-4" />
-            <span>Asignar Entrenador a Socio</span>
+            <span>Asignar Entrenador a Cliente</span>
           </Button>
         )}
       </div>
@@ -166,7 +177,7 @@ export const TrainerAssignmentsPage: React.FC = () => {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por entrenador, socio u observaciones..."
+              placeholder="Buscar por entrenador, cliente u observaciones..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
@@ -189,9 +200,9 @@ export const TrainerAssignmentsPage: React.FC = () => {
             <EmptyState
               icon={Dumbbell}
               title="No hay asignaciones encontradas"
-              description="No hay entrenadores vinculados a socios actualmente con los filtros dados."
-              actionText={isAdminOrTrainer ? 'Crear Primera Asignación' : undefined}
-              onAction={isAdminOrTrainer ? openCreateModal : undefined}
+              description="No hay entrenadores vinculados actualmente con los filtros dados."
+              actionText={canCreateAssignment ? 'Crear Primera Asignación' : undefined}
+              onAction={canCreateAssignment ? openCreateModal : undefined}
             />
           ) : (
             <div className="overflow-x-auto">
@@ -199,7 +210,7 @@ export const TrainerAssignmentsPage: React.FC = () => {
                 <thead>
                   <tr className="border-b border-border bg-secondary/30 text-xs text-muted-foreground uppercase font-semibold">
                     <th className="py-3 px-4">Entrenador</th>
-                    <th className="py-3 px-4">Socio Asignado</th>
+                    <th className="py-3 px-4">Cliente Asignado</th>
                     <th className="py-3 px-4">Periodo</th>
                     <th className="py-3 px-4">Notas</th>
                     <th className="py-3 px-4">Estado</th>
@@ -218,7 +229,7 @@ export const TrainerAssignmentsPage: React.FC = () => {
                       <td className="py-3.5 px-4 font-semibold text-foreground">
                         <div className="flex items-center gap-2">
                           <UserCheck className="h-4 w-4 text-blue-400" />
-                          <span>{a.memberName || 'Socio'}</span>
+                          <span>{a.memberName || 'Cliente'}</span>
                         </div>
                       </td>
                       <td className="py-3.5 px-4 text-xs text-muted-foreground">
@@ -288,7 +299,7 @@ export const TrainerAssignmentsPage: React.FC = () => {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Asignar Entrenador a Socio"
+        title="Asignar Entrenador a Cliente"
       >
         <form onSubmit={form.handleSubmit((d) => createMutation.mutate(d))} className="space-y-4">
           <div>
@@ -304,9 +315,9 @@ export const TrainerAssignmentsPage: React.FC = () => {
           </div>
 
           <div>
-            <Label required>Socio</Label>
+            <Label required>Cliente</Label>
             <Select {...form.register('memberId')}>
-              <option value="">Selecciona socio...</option>
+              <option value="">Selecciona cliente...</option>
               {members.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.firstName} {m.lastName} (@{m.username})

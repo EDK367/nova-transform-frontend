@@ -8,6 +8,7 @@ import {
   PhysicalMeasurementResponse,
 } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { PERMISSIONS } from '@/security/permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -46,7 +47,7 @@ import {
 } from 'recharts';
 
 const measurementSchema = z.object({
-  memberId: z.string().min(1, 'Selecciona un socio'),
+  memberId: z.string().min(1, 'Selecciona un cliente'),
   measurementDate: z.string().min(1, 'Fecha requerida'),
   measuredByTrainerId: z.string().optional(),
   weightKg: z.coerce.number().min(20).max(300).optional(),
@@ -64,8 +65,11 @@ const measurementSchema = z.object({
 type MeasurementFormData = z.infer<typeof measurementSchema>;
 
 export const PhysicalMeasurementsPage: React.FC = () => {
-  const { user, hasRole } = useAuth();
-  const isAdminOrTrainer = hasRole('ADMIN', 'ENTRENADOR');
+  const { user, hasRole, checkPolicy } = useAuth();
+  const isAdminOrTrainer = checkPolicy({
+    permissions: [PERMISSIONS.MEASUREMENTS_MANAGE],
+    roles: ['ADMIN', 'ENTRENADOR'],
+  });
   const isClient = hasRole('CLIENTE');
   const queryClient = useQueryClient();
 
@@ -238,7 +242,7 @@ export const PhysicalMeasurementsPage: React.FC = () => {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por socio, evaluador o notas..."
+              placeholder="Buscar por cliente, evaluador o notas..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
@@ -271,7 +275,7 @@ export const PhysicalMeasurementsPage: React.FC = () => {
                 <thead>
                   <tr className="border-b border-border bg-secondary/30 text-xs text-muted-foreground uppercase font-semibold">
                     <th className="py-3 px-4">Fecha</th>
-                    <th className="py-3 px-4">Socio</th>
+                    <th className="py-3 px-4">Cliente</th>
                     <th className="py-3 px-4">Peso</th>
                     <th className="py-3 px-4">% Grasa</th>
                     <th className="py-3 px-4">Masa Muscular</th>
@@ -290,7 +294,7 @@ export const PhysicalMeasurementsPage: React.FC = () => {
                         </div>
                       </td>
                       <td className="py-3.5 px-4 font-semibold text-foreground">
-                        {m.memberName || 'Socio'}
+                        {m.memberName || 'Cliente'}
                       </td>
                       <td className="py-3.5 px-4 font-mono font-bold text-emerald-400">
                         {m.weightKg != null ? `${m.weightKg} kg` : '-'}
@@ -363,9 +367,9 @@ export const PhysicalMeasurementsPage: React.FC = () => {
         <form onSubmit={form.handleSubmit((d) => createMutation.mutate(d))} className="space-y-4">
           {!isClient && (
             <div>
-              <Label required>Socio Evaluado</Label>
+              <Label required>Cliente Evaluado</Label>
               <Select {...form.register('memberId')}>
-                <option value="">Selecciona socio...</option>
+                <option value="">Selecciona cliente...</option>
                 {members.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.firstName} {m.lastName} (@{m.username})

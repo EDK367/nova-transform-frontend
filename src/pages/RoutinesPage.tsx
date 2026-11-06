@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { routineService } from '@/services/routine.service';
 import { exerciseService } from '@/services/exercise.service';
 import { trainerService } from '@/services/trainer.service';
+import { trainerAssignmentService } from '@/services/trainer-assignment.service';
 import { memberService } from '@/services/member.service';
 import {
   AddRoutineExerciseRequest,
@@ -12,6 +13,7 @@ import {
   RoutineResponse,
 } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { PERMISSIONS } from '@/security/permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -43,6 +45,7 @@ import {
 } from 'lucide-react';
 
 const routineSchema = z.object({
+  assignmentId: z.coerce.number().optional(),
   name: z.string().min(2, 'Nombre requerido').max(100),
   description: z.string().optional(),
   goal: z.string().optional(),
@@ -64,9 +67,16 @@ const exerciseItemSchema = z.object({
 type ExerciseItemFormData = z.infer<typeof exerciseItemSchema>;
 
 export const RoutinesPage: React.FC = () => {
-  const { hasRole } = useAuth();
-  const isAdminOrTrainer = hasRole('ADMIN', 'ENTRENADOR');
-  const isAdmin = hasRole('ADMIN');
+  const { user, hasRole, checkPolicy } = useAuth();
+  const isClient = hasRole('CLIENTE');
+  const isAdminOrTrainer = checkPolicy({
+    permissions: [PERMISSIONS.ROUTINES_MANAGE],
+    roles: ['ADMIN', 'ENTRENADOR'],
+  });
+  const isAdmin = checkPolicy({
+    permissions: [PERMISSIONS.ROUTINES_MANAGE],
+    roles: ['ADMIN'],
+  });
   const queryClient = useQueryClient();
 
   const [page, setPage] = useState(0);
@@ -79,20 +89,33 @@ export const RoutinesPage: React.FC = () => {
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
 
   const { data: routinesData, isLoading } = useQuery({
-    queryKey: ['routines', page],
-    queryFn: () => routineService.getAll({ page, size: 10, sortBy: 'name', sortDirection: 'asc' }),
+    queryKey: ['routines', page, isClient ? user?.id : 'all'],
+    queryFn: () =>
+      routineService.getAll({
+        page,
+        size: 10,
+        memberId: isClient ? user?.id : undefined,
+        sortBy: 'name',
+        sortDirection: 'asc',
+      }),
   });
 
   const { data: trainersData } = useQuery({
     queryKey: ['trainers-select-routines'],
     queryFn: () => trainerService.getAll({ page: 0, size: 100 }),
-    enabled: isModalOpen,
+    enabled: isModalOpen && isAdminOrTrainer,
   });
 
   const { data: membersData } = useQuery({
     queryKey: ['members-select-routines'],
     queryFn: () => memberService.getAll({ page: 0, size: 100 }),
-    enabled: isModalOpen,
+    enabled: isModalOpen && isAdminOrTrainer,
+  });
+
+  const { data: assignmentsData } = useQuery({
+    queryKey: ['assignments-select-routines'],
+    queryFn: () => trainerAssignmentService.getAll({ page: 0, size: 100, active: true }),
+    enabled: isModalOpen && isAdminOrTrainer,
   });
 
   const { data: allExercisesData } = useQuery({
@@ -145,9 +168,34 @@ export const RoutinesPage: React.FC = () => {
 
   const saveMutation = useMutation({
     mutationFn: async (data: RoutineFormData) => {
+      let resolvedAssignmentId = data.assignmentId ? Number(data.assignmentId) : undefined;
+
+      if (!resolvedAssignmentId && !editingRoutine) {
+        const existingAssignments = assignmentsData?.content || [];
+        const matched = existingAssignments.find(
+          (a) =>
+            (!data.memberId || a.memberId === data.memberId) &&
+            (!data.trainerId || a.trainerId === data.trainerId)
+        );
+        if (matched) {
+          resolvedAssignmentId = matched.id;
+        } else if (data.trainerId && data.memberId) {
+          const createdAssignment = await trainerAssignmentService.create({
+            trainerId: data.trainerId,
+            memberId: data.memberId,
+            startDate: new Date().toISOString().split('T')[0],
+            notes: data.goal || 'Asignación para rutina',
+          });
+          resolvedAssignmentId = createdAssignment.id;
+        } else if (existingAssignments.length > 0) {
+          resolvedAssignmentId = existingAssignments[0].id;
+        }
+      }
+
       const payload: CreateRoutineRequest = {
+        assignmentId: resolvedAssignmentId,
         name: data.name,
-        description: data.description || undefined,
+        description: data.description || `${data.goal || 'General'} - ${data.difficultyLevel || 'Intermedio'}`,
         goal: data.goal || undefined,
         difficultyLevel: data.difficultyLevel || undefined,
         trainerId: data.trainerId || undefined,
@@ -160,6 +208,7 @@ export const RoutinesPage: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['routines'] });
+      queryClient.invalidateQueries({ queryKey: ['assignments-select-routines'] });
       setIsModalOpen(false);
       toast.success(editingRoutine ? 'Rutina actualizada' : 'Rutina creada con éxito');
     },
@@ -225,7 +274,7 @@ export const RoutinesPage: React.FC = () => {
             Planes de Rutinas
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Diseño de rutinas estructuradas, series, repeticiones y asignación a miembros.
+            Diseño de rutinas estructuradas, series, repeticiones y asignación a clientes.
           </p>
         </div>
         {isAdminOrTrainer && (
@@ -241,7 +290,7 @@ export const RoutinesPage: React.FC = () => {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por nombre, objetivo, entrenador o socio..."
+              placeholder="Buscar por nombre, objetivo, entrenador o cliente..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
@@ -277,7 +326,7 @@ export const RoutinesPage: React.FC = () => {
                     <th className="py-3 px-4">Objetivo</th>
                     <th className="py-3 px-4">Nivel</th>
                     <th className="py-3 px-4">Entrenador</th>
-                    <th className="py-3 px-4">Socio Asignado</th>
+                    <th className="py-3 px-4">Cliente Asignado</th>
                     <th className="py-3 px-4 text-right">Acciones</th>
                   </tr>
                 </thead>
@@ -323,7 +372,7 @@ export const RoutinesPage: React.FC = () => {
                           <ListOrdered className="h-4 w-4 mr-1" />
                           <span>Ejercicios</span>
                         </Button>
-                        {isAdmin && (
+                        {isAdminOrTrainer && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -408,9 +457,9 @@ export const RoutinesPage: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Entrenador a Cargo</Label>
+              <Label required>Entrenador a Cargo</Label>
               <Select {...form.register('trainerId')}>
-                <option value="">Plantilla sin entrenador específico</option>
+                <option value="">Selecciona entrenador...</option>
                 {trainers.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.firstName} {t.lastName}
@@ -419,9 +468,9 @@ export const RoutinesPage: React.FC = () => {
               </Select>
             </div>
             <div>
-              <Label>Socio Específico (Opcional)</Label>
+              <Label required>Cliente Asignado</Label>
               <Select {...form.register('memberId')}>
-                <option value="">Plantilla pública / General</option>
+                <option value="">Selecciona cliente...</option>
                 {members.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.firstName} {m.lastName}

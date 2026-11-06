@@ -82,29 +82,9 @@ export const Login: React.FC = () => {
         </div>
 
         <div className="relative z-10 max-w-lg space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Versión 2.0 • Quarkus & React High-Performance</span>
-          </div>
-
           <h2 className="text-4xl xl:text-5xl font-extrabold text-white leading-tight">
             Potencia la administración de tu gimnasio con <span className="text-emerald-400">precisión empresarial</span>.
           </h2>
-
-          <p className="text-slate-400 text-sm leading-relaxed">
-            Control integral de socios, membresías con beneficios dinámicos, clases especializadas, check-in en tiempo real y facturación automatizada.
-          </p>
-
-          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-800">
-            <div className="flex items-center gap-2.5">
-              <ShieldCheck className="h-5 w-5 text-emerald-400 shrink-0" />
-              <span className="text-xs text-slate-300 font-medium">Seguridad JWT RS256</span>
-            </div>
-            <div className="flex items-center gap-2.5">
-              <ShieldCheck className="h-5 w-5 text-emerald-400 shrink-0" />
-              <span className="text-xs text-slate-300 font-medium">RBAC Multinivel</span>
-            </div>
-          </div>
         </div>
 
         <div className="relative z-10 text-xs text-slate-400">

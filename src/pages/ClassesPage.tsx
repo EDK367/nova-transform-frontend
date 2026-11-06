@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { classService } from '@/services/class.service';
 import { memberService } from '@/services/member.service';
-import { userService } from '@/services/user.service';
+import { trainerService } from '@/services/trainer.service';
 import {
   ClassEnrollmentResponse,
   ClassRatingResponse,
@@ -15,6 +15,7 @@ import {
   WaitlistResponse,
 } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { PERMISSIONS } from '@/security/permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -57,8 +58,15 @@ const createClassSchema = z.object({
 type CreateClassFormData = z.infer<typeof createClassSchema>;
 
 export const ClassesPage: React.FC = () => {
-  const { user, hasRole } = useAuth();
-  const isAdminOrRecep = hasRole('ADMIN', 'RECEPCIONISTA');
+  const { user, hasRole, checkPolicy } = useAuth();
+  const canManageClasses = checkPolicy({
+    permissions: [PERMISSIONS.CLASSES_MANAGE],
+    roles: ['ADMIN'],
+  });
+  const isAdminOrRecep = checkPolicy({
+    permissions: [PERMISSIONS.CLASSES_MANAGE, PERMISSIONS.ENROLLMENTS_MANAGE],
+    roles: ['ADMIN', 'RECEPCIONISTA'],
+  });
   const isClient = hasRole('CLIENTE');
   const queryClient = useQueryClient();
 
@@ -95,29 +103,29 @@ export const ClassesPage: React.FC = () => {
   });
 
   const { data: trainersData } = useQuery({
-    queryKey: ['trainers'],
-    queryFn: () => userService.getAll({ page: 0, size: 50 }),
-    enabled: isAdminOrRecep,
+    queryKey: ['trainers-select'],
+    queryFn: () => trainerService.getAll({ page: 0, size: 100 }),
+    enabled: isCreateOpen && canManageClasses,
   });
 
   const { data: membersData } = useQuery({
     queryKey: ['members-select'],
     queryFn: () => memberService.getAll({ page: 0, size: 100 }),
-    enabled: isAdminOrRecep,
+    enabled: !!enrollingClass && isAdminOrRecep,
   });
 
   // Class Enrollments query
   const { data: classEnrollments, isLoading: loadingEnrollments } = useQuery<ClassEnrollmentResponse[]>({
     queryKey: ['class-enrollments', viewingEnrollmentsClassId],
     queryFn: () => classService.getClassEnrollments(viewingEnrollmentsClassId!),
-    enabled: !!viewingEnrollmentsClassId,
+    enabled: !!viewingEnrollmentsClassId && !isClient,
   });
 
   // Class Waitlist query
   const { data: classWaitlist } = useQuery<WaitlistResponse[]>({
     queryKey: ['class-waitlist', viewingEnrollmentsClassId],
     queryFn: () => classService.getClassWaitlist(viewingEnrollmentsClassId!),
-    enabled: !!viewingEnrollmentsClassId,
+    enabled: !!viewingEnrollmentsClassId && !isClient,
   });
 
   // Class Ratings query
@@ -186,9 +194,7 @@ export const ClassesPage: React.FC = () => {
     });
   };
 
-  const trainers = (trainersData?.content || []).filter(
-    (u) => u.roleName === 'ENTRENADOR' || u.roleName === 'ADMIN'
-  );
+  const trainers = trainersData?.content || [];
 
   const classes = classesData?.content || [];
 
@@ -204,7 +210,7 @@ export const ClassesPage: React.FC = () => {
             Sesiones grupales, entrenamientos funcionales, cupos y reservas.
           </p>
         </div>
-        {isAdminOrRecep && (
+        {canManageClasses && (
           <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
             <Plus className="h-4 w-4" />
             <span>Programar Clase</span>
@@ -243,8 +249,8 @@ export const ClassesPage: React.FC = () => {
           icon={CalendarDays}
           title="No hay clases programadas"
           description="Aún no se han calendarizado sesiones en el sistema o no coinciden con el filtro."
-          actionText={isAdminOrRecep ? 'Programar Primera Clase' : undefined}
-          onAction={isAdminOrRecep ? () => setIsCreateOpen(true) : undefined}
+          actionText={canManageClasses ? 'Programar Primera Clase' : undefined}
+          onAction={canManageClasses ? () => setIsCreateOpen(true) : undefined}
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -337,14 +343,16 @@ export const ClassesPage: React.FC = () => {
 
                 <CardFooter className="pt-3 border-t border-border flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setViewingEnrollmentsClassId(cls.id)}
-                      title="Ver inscritos y lista de espera"
-                    >
-                      <Users className="h-4 w-4" />
-                    </Button>
+                    {!isClient && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setViewingEnrollmentsClassId(cls.id)}
+                        title="Ver inscritos y lista de espera"
+                      >
+                        <Users className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="ghost"
@@ -356,7 +364,7 @@ export const ClassesPage: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {cls.status === 'SCHEDULED' && (
+                    {cls.status === 'SCHEDULED' && (isAdminOrRecep || isClient) && (
                       <Button
                         size="sm"
                         onClick={() => {
@@ -370,7 +378,7 @@ export const ClassesPage: React.FC = () => {
                       </Button>
                     )}
 
-                    {isAdminOrRecep && cls.status === 'SCHEDULED' && (
+                    {canManageClasses && cls.status === 'SCHEDULED' && (
                       <Button
                         size="sm"
                         variant="ghost"
@@ -533,12 +541,12 @@ export const ClassesPage: React.FC = () => {
         <div className="space-y-4 py-2">
           {isAdminOrRecep ? (
             <div>
-              <Label required>Selecciona el Socio a Inscribir</Label>
+              <Label required>Selecciona el Cliente a Inscribir</Label>
               <Select
                 value={selectedMemberId}
                 onChange={(e) => setSelectedMemberId(e.target.value)}
               >
-                <option value="">Selecciona un socio registrado...</option>
+                <option value="">Selecciona un cliente registrado...</option>
                 {membersData?.content?.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.firstName} {m.lastName} (@{m.username})
@@ -582,7 +590,7 @@ export const ClassesPage: React.FC = () => {
         isOpen={!!viewingEnrollmentsClassId}
         onClose={() => setViewingEnrollmentsClassId(null)}
         title="Inscripciones y Lista de Espera"
-        description="Socios registrados para esta clase deportiva."
+        description="Clientes registrados para esta clase deportiva."
         maxWidth="lg"
       >
         <div className="space-y-6 py-2">
@@ -593,11 +601,11 @@ export const ClassesPage: React.FC = () => {
               {/* Active Enrollments */}
               <div>
                 <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
-                  Socios Inscritos ({classEnrollments?.length || 0})
+                  Clientes Inscritos ({classEnrollments?.length || 0})
                 </h4>
                 {!classEnrollments || classEnrollments.length === 0 ? (
                   <p className="text-xs text-muted-foreground italic">
-                    No hay socios inscritos en esta clase aún.
+                    No hay clientes inscritos en esta clase aún.
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -624,7 +632,7 @@ export const ClassesPage: React.FC = () => {
                 </h4>
                 {!classWaitlist || classWaitlist.length === 0 ? (
                   <p className="text-xs text-muted-foreground italic">
-                    Sin socios en lista de espera.
+                    Sin clientes en lista de espera.
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -661,7 +669,7 @@ export const ClassesPage: React.FC = () => {
         isOpen={!!viewingRatingsClassId}
         onClose={() => setViewingRatingsClassId(null)}
         title="Calificaciones y Retroalimentación"
-        description="Opiniones enviadas por los socios que asistieron a esta clase."
+        description="Opiniones enviadas por los clientes que asistieron a esta clase."
         maxWidth="md"
       >
         <div className="py-2">
@@ -710,7 +718,7 @@ export const ClassesPage: React.FC = () => {
         onClose={() => setCancellingClass(null)}
         onConfirm={() => cancellingClass && cancelMutation.mutate(cancellingClass.id)}
         title="Cancelar Clase Programada"
-        message={`¿Estás seguro de que deseas cancelar la sesión de "${cancellingClass?.classTypeName}" (${formatDateTime(cancellingClass?.schedule)})? Los socios inscritos serán notificados.`}
+        message={`¿Estás seguro de que deseas cancelar la sesión de "${cancellingClass?.classTypeName}" (${formatDateTime(cancellingClass?.schedule)})? Los clientes inscritos serán notificados.`}
         confirmText="Confirmar Cancelación"
         isLoading={cancelMutation.isPending}
       />

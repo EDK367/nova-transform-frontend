@@ -10,6 +10,7 @@ import { goalService } from '@/services/goal.service';
 import { memberService } from '@/services/member.service';
 import type { AssignMemberGoalRequest, MemberGoalResponse } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { PERMISSIONS } from '@/security/permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,15 +36,18 @@ const createGoalSchema = z.object({
 type CreateGoalFormData = z.infer<typeof createGoalSchema>;
 
 const assignGoalSchema = z.object({
-  memberId: z.string().min(1, 'Selecciona un socio'),
+  memberId: z.string().min(1, 'Selecciona un cliente'),
   goalId: z.coerce.number().min(1, 'Selecciona un objetivo'),
 });
 
 type AssignGoalFormData = z.infer<typeof assignGoalSchema>;
 
 export const GoalsPage: React.FC = () => {
-  const { user, hasRole } = useAuth();
-  const isAdminOrTrainer = hasRole('ADMIN', 'ENTRENADOR');
+  const { user, hasRole, checkPolicy } = useAuth();
+  const isAdminOrTrainer = checkPolicy({
+    permissions: [PERMISSIONS.GOALS_MANAGE],
+    roles: ['ADMIN', 'ENTRENADOR'],
+  });
   const isClient = hasRole('CLIENTE');
   const queryClient = useQueryClient();
 
@@ -149,7 +153,7 @@ export const GoalsPage: React.FC = () => {
       setIsAssignModalOpen(false);
       assignForm.reset();
 
-      toast.success('Objetivo asignado al socio');
+      toast.success('Objetivo asignado al cliente');
     },
 
     onError: () => {
@@ -189,7 +193,7 @@ export const GoalsPage: React.FC = () => {
           </h1>
 
           <p className="text-sm text-muted-foreground mt-1">
-            Catálogo de objetivos y asignación de metas a los socios.
+            Catálogo de objetivos y asignación de metas a los clientes.
           </p>
         </div>
 
@@ -224,19 +228,21 @@ export const GoalsPage: React.FC = () => {
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
-          Objetivos de Socios
+          {isClient ? 'Mis Objetivos' : 'Objetivos de Clientes'}
         </button>
 
-        <button
-          onClick={() => setActiveTab('catalog')}
-          className={`py-3 px-5 text-sm font-semibold border-b-2 transition-colors ${
-            activeTab === 'catalog'
-              ? 'border-emerald-500 text-emerald-500'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          Catálogo de Metas
-        </button>
+        {!isClient && (
+          <button
+            onClick={() => setActiveTab('catalog')}
+            className={`py-3 px-5 text-sm font-semibold border-b-2 transition-colors ${
+              activeTab === 'catalog'
+                ? 'border-emerald-500 text-emerald-500'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Catálogo de Metas
+          </button>
+        )}
       </div>
 
       {activeTab === 'assigned' ? (
@@ -245,7 +251,7 @@ export const GoalsPage: React.FC = () => {
             <CardTitle>Metas Establecidas</CardTitle>
 
             <CardDescription>
-              Objetivos asignados a los socios del gimnasio.
+              Objetivos asignados a los clientes del gimnasio.
             </CardDescription>
           </CardHeader>
 
@@ -261,7 +267,7 @@ export const GoalsPage: React.FC = () => {
               <EmptyState
                 icon={Target}
                 title="No hay objetivos fijados"
-                description="Todavía no hay objetivos asignados a los socios."
+                description="Todavía no hay objetivos asignados a los clientes."
                 actionText="Fijar Nuevo Objetivo"
                 onAction={() => setIsAssignModalOpen(true)}
               />
@@ -271,7 +277,7 @@ export const GoalsPage: React.FC = () => {
                   <thead>
                     <tr className="border-b border-border bg-secondary/30 text-xs text-muted-foreground uppercase font-semibold">
                       <th className="py-3 px-4">
-                        Socio
+                        Cliente
                       </th>
 
                       <th className="py-3 px-4">
@@ -291,7 +297,7 @@ export const GoalsPage: React.FC = () => {
                         className="hover:bg-secondary/40 transition-colors"
                       >
                         <td className="py-3.5 px-4 font-semibold text-foreground">
-                          {mg.memberName || 'Socio'}
+                          {mg.memberName || 'Cliente'}
                         </td>
 
                         <td className="py-3.5 px-4 font-medium text-foreground">
@@ -327,7 +333,7 @@ export const GoalsPage: React.FC = () => {
             </CardTitle>
 
             <CardDescription>
-              Objetivos disponibles para asignar a los socios.
+              Objetivos disponibles para asignar a los clientes.
             </CardDescription>
           </CardHeader>
 
@@ -452,7 +458,7 @@ export const GoalsPage: React.FC = () => {
       <Modal
         isOpen={isAssignModalOpen}
         onClose={() => setIsAssignModalOpen(false)}
-        title="Asignar Objetivo a Socio"
+        title="Asignar Objetivo a Cliente"
       >
         <form
           onSubmit={assignForm.handleSubmit((data) =>
@@ -462,11 +468,11 @@ export const GoalsPage: React.FC = () => {
         >
           {!isClient && (
             <div>
-              <Label required>Socio</Label>
+              <Label required>Cliente</Label>
 
               <Select {...assignForm.register('memberId')}>
                 <option value="">
-                  Selecciona un socio...
+                  Selecciona un cliente...
                 </option>
 
                 {members.map((member) => (
@@ -553,7 +559,7 @@ export const GoalsPage: React.FC = () => {
           }
         }}
         title="Eliminar Objetivo Asignado"
-        message="¿Seguro que deseas quitar este objetivo del socio?"
+        message="¿Seguro que deseas quitar este objetivo del cliente?"
         confirmText="Eliminar"
         isLoading={
           deleteMemberGoalMutation.isPending

@@ -12,6 +12,7 @@ import {
   UpdateTrainerRequest,
 } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { PERMISSIONS } from '@/security/permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -55,8 +56,12 @@ const trainerSchema = z.object({
 type TrainerFormData = z.infer<typeof trainerSchema>;
 
 export const TrainersPage: React.FC = () => {
-  const { hasRole } = useAuth();
-  const isAdmin = hasRole('ADMIN');
+  const { checkPolicy } = useAuth();
+  const isAdmin = checkPolicy({ permissions: [PERMISSIONS.TRAINERS_MANAGE], roles: ['ADMIN'] });
+  const canManageSpecs = checkPolicy({
+    permissions: [PERMISSIONS.SPECIALIZATIONS_MANAGE],
+    roles: ['ADMIN', 'ENTRENADOR'],
+  });
   const queryClient = useQueryClient();
 
   const [page, setPage] = useState(0);
@@ -92,7 +97,7 @@ export const TrainersPage: React.FC = () => {
   const { data: usersData } = useQuery({
     queryKey: ['users-select-trainers'],
     queryFn: () => userService.getAll({ page: 0, size: 100 }),
-    enabled: isModalOpen && !editingTrainer,
+    enabled: isModalOpen && !editingTrainer && isAdmin,
   });
 
   const { data: trainerSpecs, refetch: refetchTrainerSpecs } = useQuery({
@@ -472,7 +477,7 @@ export const TrainersPage: React.FC = () => {
                     className="flex items-center gap-1.5 py-1 px-3 text-xs"
                   >
                     <span>{ts.specializationName || `Especialidad #${ts.specializationId}`}</span>
-                    {isAdmin && (
+                    {canManageSpecs && (
                       <button
                         type="button"
                         onClick={() =>
@@ -495,7 +500,7 @@ export const TrainersPage: React.FC = () => {
             )}
           </div>
 
-          {isAdmin && (
+          {canManageSpecs && (
             <div className="pt-4 border-t border-border space-y-3">
               <Label>Añadir nueva especialidad</Label>
               <div className="flex gap-2">

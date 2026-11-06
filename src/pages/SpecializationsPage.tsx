@@ -7,6 +7,7 @@ import {
   UpdateSpecializationRequest,
 } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { PERMISSIONS } from '@/security/permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,8 +39,11 @@ const specializationSchema = z.object({
 type SpecializationFormData = z.infer<typeof specializationSchema>;
 
 export const SpecializationsPage: React.FC = () => {
-  const { hasRole } = useAuth();
-  const isAdmin = hasRole('ADMIN');
+  const { checkPolicy } = useAuth();
+  const isAdmin = checkPolicy({
+    permissions: [PERMISSIONS.SPECIALIZATIONS_MANAGE],
+    roles: ['ADMIN', 'ENTRENADOR'],
+  });
   const queryClient = useQueryClient();
 
   const [page, setPage] = useState(0);
