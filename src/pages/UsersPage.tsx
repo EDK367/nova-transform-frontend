@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userService } from '@/services/user.service';
 import { CreateUserRequest, RoleResponse, UpdateUserRequest, UserResponse } from '@/types';
+import { useAuth } from '@/hooks/useAuth';
+import { RequirePermission } from '@/components/common/RequirePermission';
+import { PERMISSIONS } from '@/security/permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,8 +29,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Shield,
+  Crown,
   Phone,
   Mail,
+  KeyRound,
 } from 'lucide-react';
 
 const createUserSchema = z.object({
@@ -50,6 +55,8 @@ const updateUserSchema = z.object({
   phone: z.string().max(20).optional(),
   username: z.string().min(3, 'Mínimo 3 caracteres').max(50),
   branchId: z.coerce.number().optional(),
+  roleId: z.coerce.number().optional(),
+  active: z.coerce.boolean().optional(),
 });
 
 type UpdateUserFormData = z.infer<typeof updateUserSchema>;
@@ -57,6 +64,7 @@ type UpdateUserFormData = z.infer<typeof updateUserSchema>;
 export const UsersPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isSuperAdmin } = useAuth();
   const [page, setPage] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -88,7 +96,15 @@ export const UsersPage: React.FC = () => {
     queryFn: () => userService.getRoles(),
   });
 
-  const allowedStaffRoles = roles?.filter((r) => r.name === 'ENTRENADOR' || r.name === 'RECEPCIONISTA') || [];
+  // SUPER_ADMIN nunca se asigna a otros usuarios; ADMIN solo puede ser asignado por el propietario SUPER_ADMIN
+  const assignableRoles = React.useMemo(() => {
+    if (!roles) return [];
+    return roles.filter((r) => {
+      if (r.name === 'SUPER_ADMIN' || r.name === 'CLIENTE') return false;
+      if (r.name === 'ADMIN' && !isSuperAdmin) return false;
+      return true;
+    });
+  }, [roles, isSuperAdmin]);
 
   // Create Form
   const createForm = useForm<CreateUserFormData>({
@@ -105,14 +121,20 @@ export const UsersPage: React.FC = () => {
     },
   });
 
+  const selectedCreateRoleId = createForm.watch('roleId');
+  const selectedCreateRole = React.useMemo(
+    () => roles?.find((r) => r.id === Number(selectedCreateRoleId)),
+    [roles, selectedCreateRoleId]
+  );
+
   React.useEffect(() => {
-    if (allowedStaffRoles.length > 0) {
+    if (assignableRoles.length > 0) {
       const current = createForm.getValues('roleId');
-      if (!allowedStaffRoles.some((r) => r.id === Number(current))) {
-        createForm.setValue('roleId', allowedStaffRoles[0].id);
+      if (!assignableRoles.some((r) => r.id === Number(current))) {
+        createForm.setValue('roleId', assignableRoles[0].id);
       }
     }
-  }, [allowedStaffRoles, createForm]);
+  }, [assignableRoles, createForm]);
 
   // Edit Form
   const editForm = useForm<UpdateUserFormData>({
@@ -127,7 +149,6 @@ export const UsersPage: React.FC = () => {
       setIsCreateOpen(false);
       createForm.reset();
       toast.success('Usuario interno creado exitosamente');
-      // Show temporary password modal
       setTempPasswordData({
         isOpen: true,
         username: res.username,
@@ -137,7 +158,10 @@ export const UsersPage: React.FC = () => {
       });
     },
     onError: (err: any) => {
-      const msg = err.response?.data?.message || err.response?.data?.error || 'Error al registrar usuario interno';
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        'Error al registrar usuario interno';
       toast.error(msg);
     },
   });
@@ -151,6 +175,13 @@ export const UsersPage: React.FC = () => {
       setEditingUser(null);
       toast.success('Usuario actualizado correctamente');
     },
+    onError: (err: any) => {
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        'Error al actualizar usuario';
+      toast.error(msg);
+    },
   });
 
   // Delete Mutation
@@ -159,7 +190,14 @@ export const UsersPage: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       setDeletingUser(null);
-      toast.success('Usuario eliminado del sistema');
+      toast.success('Usuario desactivado del sistema');
+    },
+    onError: (err: any) => {
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        'Error al dar de baja al usuario';
+      toast.error(msg);
     },
   });
 
@@ -173,17 +211,26 @@ export const UsersPage: React.FC = () => {
 
   const onEditSubmit = (data: UpdateUserFormData) => {
     if (!editingUser) return;
+    const isTargetOwner = editingUser.roleName === 'SUPER_ADMIN';
     updateMutation.mutate({
       id: editingUser.id,
       data: {
-        ...data,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
         phone: data.phone || undefined,
+        username: data.username,
+        branchId: data.branchId,
+        roleId: isTargetOwner ? undefined : data.roleId,
+        active: isTargetOwner ? undefined : data.active,
       },
     });
   };
 
   const openEdit = (user: UserResponse) => {
     setEditingUser(user);
+    const matchedRoleId =
+      user.roleId || roles?.find((r) => r.name === user.roleName)?.id;
     editForm.reset({
       firstName: user.firstName,
       lastName: user.lastName,
@@ -191,6 +238,8 @@ export const UsersPage: React.FC = () => {
       phone: user.phone || '',
       username: user.username,
       branchId: user.branchId || 1,
+      roleId: matchedRoleId,
+      active: user.active,
     });
   };
 
@@ -216,13 +265,15 @@ export const UsersPage: React.FC = () => {
             Gestión de Usuarios
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Administra cuentas de personal administrativo, entrenadores y recepcionistas.
+            Administra cuentas de personal administrativo, entrenadores, recepcionistas y roles personalizados.
           </p>
         </div>
-        <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
-          <UserPlus className="h-4 w-4" />
-          <span>Nuevo Usuario</span>
-        </Button>
+        <RequirePermission permission={PERMISSIONS.USERS_CREATE} roles={['ADMIN']}>
+          <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
+            <UserPlus className="h-4 w-4" />
+            <span>Nuevo Usuario</span>
+          </Button>
+        </RequirePermission>
       </div>
 
       {/* Filter and Search Bar */}
@@ -270,68 +321,100 @@ export const UsersPage: React.FC = () => {
                     <th className="py-3 px-4">Usuario</th>
                     <th className="py-3 px-4">Nombre Completo</th>
                     <th className="py-3 px-4">Contacto</th>
-                    <th className="py-3 px-4">Rol</th>
+                    <th className="py-3 px-4">Rol y Permisos</th>
                     <th className="py-3 px-4">Sucursal</th>
                     <th className="py-3 px-4">Estado</th>
                     <th className="py-3 px-4 text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {filteredUsers.map((u) => (
-                    <tr key={u.id} className="hover:bg-secondary/40 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-medium text-foreground">
-                        @{u.username}
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-foreground">
-                        {u.firstName} {u.lastName}
-                      </td>
-                      <td className="py-3.5 px-4 text-xs text-muted-foreground space-y-0.5">
-                        <div className="flex items-center gap-1.5">
-                          <Mail className="h-3 w-3" />
-                          <span>{u.email}</span>
-                        </div>
-                        {u.phone && (
+                  {filteredUsers.map((u) => {
+                    const isOwnerAccount = u.roleName === 'SUPER_ADMIN';
+                    const isAdminAccount = u.roleName === 'ADMIN';
+                    const canModifyRow =
+                      isSuperAdmin || (!isOwnerAccount && !isAdminAccount);
+                    const canDeleteRow =
+                      !isOwnerAccount && (isSuperAdmin || !isAdminAccount);
+
+                    return (
+                      <tr key={u.id} className="hover:bg-secondary/40 transition-colors">
+                        <td className="py-3.5 px-4 font-mono font-medium text-foreground">
+                          @{u.username}
+                        </td>
+                        <td className="py-3.5 px-4 font-semibold text-foreground">
+                          {u.firstName} {u.lastName}
+                        </td>
+                        <td className="py-3.5 px-4 text-xs text-muted-foreground space-y-0.5">
                           <div className="flex items-center gap-1.5">
-                            <Phone className="h-3 w-3" />
-                            <span>{u.phone}</span>
+                            <Mail className="h-3 w-3" />
+                            <span>{u.email}</span>
                           </div>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                          <Shield className="h-3 w-3" />
-                          {u.roleName}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-xs text-muted-foreground font-medium">
-                        Sucursal #{u.branchId || 1}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <Badge variant={u.active ? 'default' : 'destructive'}>
-                          {u.active ? 'Activo' : 'Inactivo'}
-                        </Badge>
-                      </td>
-                      <td className="py-3.5 px-4 text-right space-x-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => openEdit(u)}
-                          title="Editar usuario"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-red-400 hover:text-red-500 hover:bg-red-500/10"
-                          onClick={() => setDeletingUser(u)}
-                          title="Eliminar usuario"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                          {u.phone && (
+                            <div className="flex items-center gap-1.5">
+                              <Phone className="h-3 w-3" />
+                              <span>{u.phone}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="flex flex-col items-start gap-1">
+                            {isOwnerAccount ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-400/30">
+                                <Crown className="h-3 w-3" />
+                                SUPER_ADMIN (Propietario)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                <Shield className="h-3 w-3" />
+                                {u.roleName}
+                              </span>
+                            )}
+                            {u.permissions && u.permissions.length > 0 && (
+                              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                <KeyRound className="h-2.5 w-2.5 text-emerald-400" />
+                                {u.permissions.length} permisos heredados
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 text-xs text-muted-foreground font-medium">
+                          Sucursal #{u.branchId || 1}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <Badge variant={u.active ? 'default' : 'destructive'}>
+                            {u.active ? 'Activo' : 'Inactivo'}
+                          </Badge>
+                        </td>
+                        <td className="py-3.5 px-4 text-right space-x-2">
+                          {canModifyRow && (
+                            <RequirePermission permission={PERMISSIONS.USERS_UPDATE} roles={['ADMIN']}>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => openEdit(u)}
+                                title="Editar usuario"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                            </RequirePermission>
+                          )}
+                          {canDeleteRow && (
+                            <RequirePermission permission={PERMISSIONS.USERS_DELETE} roles={['ADMIN']}>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-red-400 hover:text-red-500 hover:bg-red-500/10"
+                                onClick={() => setDeletingUser(u)}
+                                title="Dar de baja usuario"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </RequirePermission>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -373,10 +456,10 @@ export const UsersPage: React.FC = () => {
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         title="Crear Nuevo Usuario del Personal"
-        description="Registra personal operativo del gimnasio (entrenadores o recepcionistas)."
+        description="Registra personal operativo o administrativo. Los permisos se asignan automáticamente según el rol seleccionado."
       >
         <div className="mb-4 p-3 bg-secondary/50 rounded-lg border border-border text-xs text-muted-foreground flex items-center justify-between gap-2">
-          <span>¿Deseas registrar un cliente o socio?</span>
+          <span>¿Deseas registrar un cliente?</span>
           <Button
             type="button"
             variant="ghost"
@@ -387,7 +470,7 @@ export const UsersPage: React.FC = () => {
               navigate('/members');
             }}
           >
-            Ir a Socios &rarr;
+            Ir a Clientes &rarr;
           </Button>
         </div>
 
@@ -424,7 +507,7 @@ export const UsersPage: React.FC = () => {
             <div>
               <Label>Teléfono</Label>
               <Input
-                placeholder="+52 555 123 4567"
+                placeholder="+502 5500 1234"
                 error={createForm.formState.errors.phone?.message}
                 {...createForm.register('phone')}
               />
@@ -441,19 +524,40 @@ export const UsersPage: React.FC = () => {
               />
             </div>
             <div>
-              <Label required>Rol del Personal</Label>
+              <Label required>Rol Asignado</Label>
               <Select
                 error={createForm.formState.errors.roleId?.message}
                 {...createForm.register('roleId')}
               >
-                {allowedStaffRoles.map((r) => (
+                {assignableRoles.map((r) => (
                   <option key={r.id} value={r.id}>
-                    {r.name} - {r.description}
+                    {r.name} — {r.description}
                   </option>
                 ))}
               </Select>
             </div>
           </div>
+
+          {selectedCreateRole && (
+            <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20 text-xs space-y-1.5">
+              <div className="flex items-center justify-between font-semibold text-emerald-400">
+                <span>Permisos heredados por el rol {selectedCreateRole.name}:</span>
+                <span>{selectedCreateRole.permissions?.length || 0} activos</span>
+              </div>
+              {selectedCreateRole.permissions && selectedCreateRole.permissions.length > 0 && (
+                <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto pt-1">
+                  {selectedCreateRole.permissions.map((perm) => (
+                    <span
+                      key={perm.id}
+                      className="px-1.5 py-0.5 rounded bg-secondary text-[10px] font-mono text-muted-foreground"
+                    >
+                      {perm.code}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -491,7 +595,7 @@ export const UsersPage: React.FC = () => {
         isOpen={!!editingUser}
         onClose={() => setEditingUser(null)}
         title="Editar Usuario"
-        description="Actualiza la información básica del usuario."
+        description="Actualiza la información básica, sucursal, rol o estado de la cuenta."
       >
         <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 py-2">
           <div className="grid grid-cols-2 gap-4">
@@ -548,6 +652,31 @@ export const UsersPage: React.FC = () => {
             </div>
           </div>
 
+          {editingUser?.roleName !== 'SUPER_ADMIN' && editingUser?.roleName !== 'CLIENTE' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Rol Asignado</Label>
+                <Select {...editForm.register('roleId')}>
+                  {assignableRoles.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <Label>Estado de la Cuenta</Label>
+                <Select
+                  value={editForm.watch('active') ? 'true' : 'false'}
+                  onChange={(e) => editForm.setValue('active', e.target.value === 'true')}
+                >
+                  <option value="true">Activo</option>
+                  <option value="false">Inactivo</option>
+                </Select>
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <Button
               type="button"
@@ -568,9 +697,9 @@ export const UsersPage: React.FC = () => {
         isOpen={!!deletingUser}
         onClose={() => setDeletingUser(null)}
         onConfirm={() => deletingUser && deleteMutation.mutate(deletingUser.id)}
-        title="Eliminar Usuario"
-        message={`¿Estás seguro de que deseas eliminar permanentemente al usuario "${deletingUser?.firstName} ${deletingUser?.lastName}" (@${deletingUser?.username})? Esta acción no se puede deshacer.`}
-        confirmText="Eliminar Definitivamente"
+        title="Dar de Baja Usuario"
+        message={`¿Estás seguro de que deseas desactivar al usuario "${deletingUser?.firstName} ${deletingUser?.lastName}" (@${deletingUser?.username})?`}
+        confirmText="Confirmar Baja"
         isLoading={deleteMutation.isPending}
       />
 

@@ -1,254 +1,17 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  Users,
-  ShieldCheck,
-  UserCheck,
-  CreditCard,
-  Layers,
-  Award,
-  CalendarDays,
-  Tag,
-  Clock,
-  FileText,
-  Receipt,
-  Wallet,
-  Sparkles,
-  ListOrdered,
-  Star,
-  LogOut,
-  ChevronRight,
-  X,
-  Building2,
-  UserCog,
-  Dumbbell,
-  Activity,
-  Target,
-  Scale,
-  QrCode,
-  BookOpen,
-  ExternalLink,
-} from 'lucide-react';
+import { LogOut, ChevronRight, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { NAVIGATION_SECTIONS } from '@/security/route-policies';
 import { cn } from '@/lib/utils';
-import { RoleName } from '@/types';
 
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-interface NavItem {
-  name: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  roles: RoleName[];
-  badge?: string;
-}
-
-const navSections: { title: string; items: NavItem[] }[] = [
-  {
-    title: 'GENERAL',
-    items: [
-      {
-        name: 'Dashboard',
-        href: '/dashboard',
-        icon: LayoutDashboard,
-        roles: ['ADMIN', 'ENTRENADOR', 'RECEPCIONISTA', 'CLIENTE'],
-      },
-    ],
-  },
-  {
-    title: 'ADMINISTRACIÓN',
-    items: [
-      {
-        name: 'Sucursales',
-        href: '/branches',
-        icon: Building2,
-        roles: ['ADMIN'],
-      },
-      {
-        name: 'Usuarios',
-        href: '/users',
-        icon: Users,
-        roles: ['ADMIN'],
-      },
-      {
-        name: 'Roles y Permisos',
-        href: '/roles',
-        icon: ShieldCheck,
-        roles: ['ADMIN'],
-      },
-      {
-        name: 'Recepcionistas',
-        href: '/receptionists',
-        icon: UserCog,
-        roles: ['ADMIN'],
-      },
-      {
-        name: 'Socios',
-        href: '/members',
-        icon: UserCheck,
-        roles: ['ADMIN', 'RECEPCIONISTA'],
-      },
-    ],
-  },
-  {
-    title: 'MEMBRESÍAS',
-    items: [
-      {
-        name: 'Membresías',
-        href: '/memberships',
-        icon: CreditCard,
-        roles: ['ADMIN', 'RECEPCIONISTA', 'CLIENTE'],
-      },
-      {
-        name: 'Planes',
-        href: '/plans',
-        icon: Layers,
-        roles: ['ADMIN', 'RECEPCIONISTA', 'ENTRENADOR', 'CLIENTE'],
-      },
-      {
-        name: 'Beneficios',
-        href: '/benefits',
-        icon: Award,
-        roles: ['ADMIN', 'RECEPCIONISTA', 'ENTRENADOR', 'CLIENTE'],
-      },
-    ],
-  },
-  {
-    title: 'ENTRENAMIENTO',
-    items: [
-      {
-        name: 'Entrenadores',
-        href: '/trainers',
-        icon: Dumbbell,
-        roles: ['ADMIN', 'RECEPCIONISTA', 'ENTRENADOR', 'CLIENTE'],
-      },
-      {
-        name: 'Especialidades',
-        href: '/specializations',
-        icon: Award,
-        roles: ['ADMIN', 'ENTRENADOR'],
-      },
-      {
-        name: 'Asignaciones',
-        href: '/trainer-assignments',
-        icon: UserCheck,
-        roles: ['ADMIN', 'ENTRENADOR', 'CLIENTE'],
-      },
-      {
-        name: 'Ejercicios',
-        href: '/exercises',
-        icon: Activity,
-        roles: ['ADMIN', 'ENTRENADOR', 'CLIENTE'],
-      },
-      {
-        name: 'Rutinas',
-        href: '/routines',
-        icon: Layers,
-        roles: ['ADMIN', 'ENTRENADOR', 'CLIENTE'],
-      },
-      {
-        name: 'Bitácora',
-        href: '/workout-logs',
-        icon: Activity,
-        roles: ['ADMIN', 'ENTRENADOR', 'CLIENTE'],
-      },
-    ],
-  },
-  {
-    title: 'SALUD Y METAS',
-    items: [
-      {
-        name: 'Metas y Objetivos',
-        href: '/goals',
-        icon: Target,
-        roles: ['ADMIN', 'ENTRENADOR', 'CLIENTE'],
-      },
-      {
-        name: 'Medidas Físicas',
-        href: '/physical-measurements',
-        icon: Scale,
-        roles: ['ADMIN', 'ENTRENADOR', 'CLIENTE'],
-      },
-    ],
-  },
-  {
-    title: 'CLASES Y ACCESOS',
-    items: [
-      {
-        name: 'Clases',
-        href: '/classes',
-        icon: CalendarDays,
-        roles: ['ADMIN', 'RECEPCIONISTA', 'ENTRENADOR', 'CLIENTE'],
-      },
-      {
-        name: 'Tipos de Clases',
-        href: '/class-types',
-        icon: Tag,
-        roles: ['ADMIN', 'RECEPCIONISTA', 'ENTRENADOR', 'CLIENTE'],
-      },
-      {
-        name: 'Asistencias',
-        href: '/attendances',
-        icon: Clock,
-        roles: ['ADMIN', 'RECEPCIONISTA', 'ENTRENADOR', 'CLIENTE'],
-      },
-      {
-        name: 'Listas de Espera',
-        href: '/waitlists',
-        icon: ListOrdered,
-        roles: ['ADMIN', 'RECEPCIONISTA', 'CLIENTE'],
-      },
-      {
-        name: 'Calificaciones',
-        href: '/ratings',
-        icon: Star,
-        roles: ['ADMIN', 'RECEPCIONISTA', 'ENTRENADOR', 'CLIENTE'],
-      },
-    ],
-  },
-  {
-    title: 'FINANZAS Y REPORTES',
-    items: [
-      {
-        name: 'Facturas',
-        href: '/invoices',
-        icon: FileText,
-        roles: ['ADMIN', 'RECEPCIONISTA', 'CLIENTE'],
-      },
-      {
-        name: 'Comprobantes de Pago',
-        href: '/payment-receipts',
-        icon: Receipt,
-        roles: ['ADMIN', 'RECEPCIONISTA', 'CLIENTE'],
-      },
-      {
-        name: 'Métodos de Pago',
-        href: '/payment-methods',
-        icon: Wallet,
-        roles: ['ADMIN', 'RECEPCIONISTA', 'ENTRENADOR', 'CLIENTE'],
-      },
-      {
-        name: 'Promociones',
-        href: '/promotions',
-        icon: Sparkles,
-        roles: ['ADMIN', 'RECEPCIONISTA', 'ENTRENADOR', 'CLIENTE'],
-      },
-      {
-        name: 'Reportes y Carnet QR',
-        href: '/reports',
-        icon: QrCode,
-        roles: ['ADMIN', 'RECEPCIONISTA', 'CLIENTE'],
-      },
-    ],
-  },
-];
-
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
-  const { user, logout, hasRole } = useAuth();
+  const { user, logout, checkPolicy } = useAuth();
 
   return (
     <>
@@ -292,11 +55,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
         {/* Navigation list */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
-          {navSections.map((section) => {
-            // Filter items user has permission to see
-            const visibleItems = section.items.filter((item) =>
-              item.roles.some((r) => hasRole(r))
-            );
+          {NAVIGATION_SECTIONS.map((section) => {
+            const visibleItems = section.items.filter((item) => checkPolicy(item.policy));
 
             if (visibleItems.length === 0) return null;
 
@@ -309,8 +69,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   const Icon = item.icon;
                   return (
                     <NavLink
-                      key={item.href}
-                      to={item.href}
+                      key={item.path}
+                      to={item.path}
                       onClick={onClose}
                       className={({ isActive }) =>
                         cn(

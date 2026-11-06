@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AppRoutes } from '@/routes/AppRoutes';
-import { Toaster } from 'sonner';
+import { Toaster } from '@/components/ui/toaster';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,12 +23,7 @@ export const App: React.FC = () => {
         <AuthProvider>
           <BrowserRouter>
             <AppRoutes />
-            <Toaster
-              position="top-right"
-              richColors
-              closeButton
-              theme="dark"
-            />
+            <Toaster />
           </BrowserRouter>
         </AuthProvider>
       </ThemeProvider>
