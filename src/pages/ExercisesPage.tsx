@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { exerciseService } from '@/services/exercise.service';
 import { CreateExerciseRequest, ExerciseResponse, UpdateExerciseRequest } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { PERMISSIONS } from '@/security/permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -54,9 +55,15 @@ const MUSCLE_GROUPS = [
 ];
 
 export const ExercisesPage: React.FC = () => {
-  const { hasRole } = useAuth();
-  const isAdminOrTrainer = hasRole('ADMIN', 'ENTRENADOR');
-  const isAdmin = hasRole('ADMIN');
+  const { checkPolicy } = useAuth();
+  const isAdminOrTrainer = checkPolicy({
+    permissions: [PERMISSIONS.EXERCISES_MANAGE],
+    roles: ['ADMIN', 'ENTRENADOR'],
+  });
+  const isAdmin = checkPolicy({
+    permissions: [PERMISSIONS.EXERCISES_MANAGE],
+    roles: ['ADMIN'],
+  });
   const queryClient = useQueryClient();
 
   const [page, setPage] = useState(0);

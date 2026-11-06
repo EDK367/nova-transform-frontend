@@ -12,6 +12,7 @@ import {
   PaymentReceiptResponse,
 } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { PERMISSIONS } from '@/security/permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -62,9 +63,15 @@ const createPaymentSchema = z.object({
 type CreatePaymentFormData = z.infer<typeof createPaymentSchema>;
 
 export const InvoicesPage: React.FC = () => {
-  const { user, hasRole } = useAuth();
-  const isAdminOrRecep = hasRole('ADMIN', 'RECEPCIONISTA');
-  const isAdmin = hasRole('ADMIN');
+  const { user, hasRole, checkPolicy } = useAuth();
+  const isAdminOrRecep = checkPolicy({
+    permissions: [PERMISSIONS.INVOICES_MANAGE, PERMISSIONS.PAYMENTS_MANAGE],
+    roles: ['ADMIN', 'RECEPCIONISTA'],
+  });
+  const isAdmin = checkPolicy({
+    permissions: [PERMISSIONS.INVOICES_MANAGE],
+    roles: ['ADMIN'],
+  });
   const isClient = hasRole('CLIENTE');
   const queryClient = useQueryClient();
 
@@ -241,7 +248,7 @@ export const InvoicesPage: React.FC = () => {
           <div className="relative flex-1 w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por folio, socio o correo..."
+              placeholder="Buscar por folio, cliente o correo..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
@@ -292,7 +299,7 @@ export const InvoicesPage: React.FC = () => {
                 <thead>
                   <tr className="border-b border-border bg-secondary/30 text-xs text-muted-foreground uppercase font-semibold">
                     <th className="py-3 px-4">Folio</th>
-                    <th className="py-3 px-4">Socio</th>
+                    <th className="py-3 px-4">Cliente</th>
                     <th className="py-3 px-4">Plan / Concepto</th>
                     <th className="py-3 px-4">Total</th>
                     <th className="py-3 px-4">Pagado</th>
@@ -427,7 +434,7 @@ export const InvoicesPage: React.FC = () => {
               error={createForm.formState.errors.membershipId?.message}
               {...createForm.register('membershipId')}
             >
-              <option value="">Selecciona la membresía activa del socio...</option>
+              <option value="">Selecciona la membresía activa del cliente...</option>
               {membershipsList?.content?.map((m) => (
                 <option key={m.id} value={m.id}>
                   Folio #{m.id} - {m.memberName} ({m.planName})
@@ -498,7 +505,7 @@ export const InvoicesPage: React.FC = () => {
         isOpen={!!payingInvoice}
         onClose={() => setPayingInvoice(null)}
         title={`Cobro de Factura #${payingInvoice?.id}`}
-        description={`Socio: ${payingInvoice?.memberName}. Saldo pendiente: ${formatCurrency(payingInvoice?.balanceDue)}`}
+        description={`Cliente: ${payingInvoice?.memberName}. Saldo pendiente: ${formatCurrency(payingInvoice?.balanceDue)}`}
       >
         <form onSubmit={paymentForm.handleSubmit(onPaymentSubmit)} className="space-y-4 py-2">
           <div>

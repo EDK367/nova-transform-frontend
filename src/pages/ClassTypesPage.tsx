@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { classService } from '@/services/class.service';
 import { ClassTypeResponse, CreateClassTypeRequest, UpdateClassTypeRequest } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { PERMISSIONS } from '@/security/permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,8 +27,8 @@ const classTypeSchema = z.object({
 type ClassTypeFormData = z.infer<typeof classTypeSchema>;
 
 export const ClassTypesPage: React.FC = () => {
-  const { hasRole } = useAuth();
-  const isAdmin = hasRole('ADMIN');
+  const { checkPolicy } = useAuth();
+  const isAdmin = checkPolicy({ permissions: [PERMISSIONS.CLASS_TYPES_MANAGE], roles: ['ADMIN'] });
   const queryClient = useQueryClient();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);

@@ -5,6 +5,7 @@ import { membershipService } from '@/services/membership.service';
 import { reportService } from '@/services/report.service';
 import { CreateMemberRequest, MemberResponse, MembershipPlanResponse } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { PERMISSIONS } from '@/security/permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -49,8 +50,8 @@ const createMemberSchema = z.object({
 type CreateMemberFormData = z.infer<typeof createMemberSchema>;
 
 export const MembersPage: React.FC = () => {
-  const { hasRole } = useAuth();
-  const isAdmin = hasRole('ADMIN');
+  const { checkPolicy } = useAuth();
+  const isAdmin = checkPolicy({ permissions: [PERMISSIONS.MEMBERS_DELETE], roles: ['ADMIN'] });
   const queryClient = useQueryClient();
 
   const [page, setPage] = useState(0);
@@ -108,7 +109,7 @@ export const MembersPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['members'] });
       setIsCreateOpen(false);
       createForm.reset();
-      toast.success('Socio registrado exitosamente');
+      toast.success('Cliente registrado exitosamente');
       setTempPasswordData({
         isOpen: true,
         username: res.username,
@@ -127,7 +128,7 @@ export const MembersPage: React.FC = () => {
           })
           .then(() => {
             queryClient.invalidateQueries({ queryKey: ['memberships'] });
-            toast.success('Membresía inicial contratada exitosamente para el socio');
+            toast.success('Membresía inicial contratada exitosamente para el cliente');
           })
           .catch((err) => {
             const msg = err.response?.data?.message || 'Error al contratar la membresía inicial';
@@ -136,7 +137,7 @@ export const MembersPage: React.FC = () => {
       }
     },
     onError: (err: any) => {
-      const msg = err.response?.data?.message || err.response?.data?.error || 'Error al registrar socio';
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Error al registrar cliente';
       toast.error(msg);
     },
   });
@@ -161,10 +162,10 @@ export const MembersPage: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['members'] });
       setDeletingMember(null);
-      toast.success('Socio eliminado correctamente');
+      toast.success('Cliente eliminado correctamente');
     },
     onError: (err: any) => {
-      const msg = err.response?.data?.message || err.response?.data?.error || 'Error al eliminar socio';
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Error al eliminar cliente';
       toast.error(msg);
     },
   });
@@ -216,7 +217,7 @@ export const MembersPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-foreground tracking-tight">
-            Directorio de Socios
+            Directorio de Clientes
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Registro, control y altas de clientes del gimnasio con membresías.
@@ -224,7 +225,7 @@ export const MembersPage: React.FC = () => {
         </div>
         <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
           <UserPlus className="h-4 w-4" />
-          <span>Registrar Nuevo Socio</span>
+          <span>Registrar Nuevo Cliente</span>
         </Button>
       </div>
 
@@ -234,7 +235,7 @@ export const MembersPage: React.FC = () => {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar socio por nombre, usuario o correo..."
+              placeholder="Buscar cliente por nombre, usuario o correo..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
@@ -248,9 +249,9 @@ export const MembersPage: React.FC = () => {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Listado General de Socios</CardTitle>
+              <CardTitle>Listado General de Clientes</CardTitle>
               <CardDescription>
-                Total: {membersData?.totalElements ?? 0} socios registrados
+                Total: {membersData?.totalElements ?? 0} clientes registrados
               </CardDescription>
             </div>
           </div>
@@ -261,9 +262,9 @@ export const MembersPage: React.FC = () => {
           ) : filteredMembers.length === 0 ? (
             <EmptyState
               icon={UserCheck}
-              title="No hay socios registrados"
-              description="Aún no se han dado de alta socios en esta sede o no coinciden con los filtros."
-              actionText="Registrar Primer Socio"
+              title="No hay clientes registrados"
+              description="Aún no se han dado de alta clientes en esta sede o no coinciden con los filtros."
+              actionText="Registrar Primer Cliente"
               onAction={() => setIsCreateOpen(true)}
             />
           ) : (
@@ -272,7 +273,7 @@ export const MembersPage: React.FC = () => {
                 <thead>
                   <tr className="border-b border-border bg-secondary/30 text-xs text-muted-foreground uppercase font-semibold">
                     <th className="py-3 px-4">Usuario</th>
-                    <th className="py-3 px-4">Socio</th>
+                    <th className="py-3 px-4">Cliente</th>
                     <th className="py-3 px-4">Contacto</th>
                     <th className="py-3 px-4">Fecha Registro</th>
                     <th className="py-3 px-4">Sucursal</th>
@@ -356,7 +357,7 @@ export const MembersPage: React.FC = () => {
                             variant="ghost"
                             className="text-red-400 hover:text-red-500 hover:bg-red-500/10"
                             onClick={() => setDeletingMember(m)}
-                            title="Eliminar socio"
+                            title="Eliminar cliente"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -404,7 +405,7 @@ export const MembersPage: React.FC = () => {
       <Modal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        title="Registrar Nuevo Socio"
+        title="Registrar Nuevo Cliente"
         description="Ingresa los datos personales del cliente para crear su cuenta y membresía."
       >
         <form onSubmit={createForm.handleSubmit(onCreateSubmit)} className="space-y-4 py-2">
@@ -488,7 +489,7 @@ export const MembersPage: React.FC = () => {
               Cancelar
             </Button>
             <Button type="submit" isLoading={createMutation.isPending}>
-              Registrar Socio
+              Registrar Cliente
             </Button>
           </div>
         </form>
@@ -557,9 +558,9 @@ export const MembersPage: React.FC = () => {
         isOpen={!!deletingMember}
         onClose={() => setDeletingMember(null)}
         onConfirm={() => deletingMember && deleteMutation.mutate(deletingMember.id)}
-        title="Eliminar Socio"
-        message={`¿Estás seguro de que deseas dar de baja y eliminar permanentemente al socio "${deletingMember?.firstName} ${deletingMember?.lastName}" (@${deletingMember?.username})?`}
-        confirmText="Eliminar Socio"
+        title="Eliminar Cliente"
+        message={`¿Estás seguro de que deseas dar de baja y eliminar permanentemente al cliente "${deletingMember?.firstName} ${deletingMember?.lastName}" (@${deletingMember?.username})?`}
+        confirmText="Eliminar Cliente"
         isLoading={deleteMutation.isPending}
       />
 
@@ -570,7 +571,7 @@ export const MembersPage: React.FC = () => {
         username={tempPasswordData.username}
         temporaryPassword={tempPasswordData.temporaryPassword}
         fullName={tempPasswordData.fullName}
-        roleName="CLIENTE / SOCIO"
+        roleName="CLIENTE"
       />
     </div>
   );

@@ -142,7 +142,7 @@ export const RatingsPage: React.FC = () => {
       {/* Ratings List */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle>Comentarios de los Socios</CardTitle>
+          <CardTitle>Comentarios de los Clientes</CardTitle>
           <CardDescription>
             {selectedClass ? `${selectedClass.classTypeName} con ${selectedClass.trainerName}` : 'Reseñas'}
           </CardDescription>
@@ -154,7 +154,7 @@ export const RatingsPage: React.FC = () => {
             <EmptyState
               icon={Star}
               title="No hay calificaciones para esta clase"
-              description="Aún ningún socio ha compartido su opinión sobre esta sesión."
+              description="Aún ningún cliente ha compartido su opinión sobre esta sesión."
               actionText={isClient ? 'Calificar esta Clase' : undefined}
               onAction={isClient ? () => setIsRateOpen(true) : undefined}
             />

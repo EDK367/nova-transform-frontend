@@ -8,6 +8,7 @@ import {
   UpdatePromotionRequest,
 } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { PERMISSIONS } from '@/security/permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -39,9 +40,12 @@ const promoSchema = z.object({
 type PromoFormData = z.infer<typeof promoSchema>;
 
 export const PromotionsPage: React.FC = () => {
-  const { hasRole } = useAuth();
-  const isAdminOrRecep = hasRole('ADMIN', 'RECEPCIONISTA');
-  const isAdmin = hasRole('ADMIN');
+  const { checkPolicy } = useAuth();
+  const isAdminOrRecep = checkPolicy({
+    permissions: [PERMISSIONS.PROMOTIONS_READ, PERMISSIONS.PROMOTIONS_MANAGE],
+    roles: ['ADMIN', 'RECEPCIONISTA'],
+  });
+  const isAdmin = checkPolicy({ permissions: [PERMISSIONS.PROMOTIONS_MANAGE], roles: ['ADMIN'] });
   const queryClient = useQueryClient();
 
   const [onlyActive, setOnlyActive] = useState(false);
@@ -142,7 +146,7 @@ export const PromotionsPage: React.FC = () => {
             Campañas promocionales por porcentaje o importe directo aplicables en facturas.
           </p>
         </div>
-        {isAdminOrRecep && (
+        {isAdmin && (
           <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
             <Plus className="h-4 w-4" />
             <span>Crear Promoción</span>
@@ -185,9 +189,9 @@ export const PromotionsPage: React.FC = () => {
             <EmptyState
               icon={Sparkles}
               title="No hay promociones registradas"
-              description="Diseña promociones de temporada para atraer e incentivar a nuevos socios."
-              actionText={isAdminOrRecep ? 'Crear Promoción' : undefined}
-              onAction={isAdminOrRecep ? () => setIsCreateOpen(true) : undefined}
+              description="Diseña promociones de temporada para atraer e incentivar a nuevos clientes."
+              actionText={isAdmin ? 'Crear Promoción' : undefined}
+              onAction={isAdmin ? () => setIsCreateOpen(true) : undefined}
             />
           ) : (
             <div className="overflow-x-auto">
@@ -200,7 +204,7 @@ export const PromotionsPage: React.FC = () => {
                     <th className="py-3 px-4">Valor Descuento</th>
                     <th className="py-3 px-4">Vigencia</th>
                     <th className="py-3 px-4">Estado</th>
-                    {isAdminOrRecep && <th className="py-3 px-4 text-right">Acciones</th>}
+                    {isAdmin && <th className="py-3 px-4 text-right">Acciones</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
@@ -245,7 +249,7 @@ export const PromotionsPage: React.FC = () => {
                             {p.active ? 'Activa' : 'Inactiva'}
                           </Badge>
                         </td>
-                        {isAdminOrRecep && (
+                        {isAdmin && (
                           <td className="py-3.5 px-4 text-right space-x-1">
                             <Button
                               size="sm"
@@ -255,17 +259,15 @@ export const PromotionsPage: React.FC = () => {
                             >
                               <Edit2 className="h-4 w-4" />
                             </Button>
-                            {isAdmin && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-red-400 hover:text-red-500 hover:bg-red-500/10"
-                                onClick={() => setDeletingPromo(p)}
-                                title="Eliminar promoción"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-red-400 hover:text-red-500 hover:bg-red-500/10"
+                              onClick={() => setDeletingPromo(p)}
+                              title="Eliminar promoción"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </td>
                         )}
                       </tr>

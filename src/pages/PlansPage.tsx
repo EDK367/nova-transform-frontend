@@ -9,6 +9,7 @@ import {
   UpdateMembershipPlanRequest,
 } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { PERMISSIONS } from '@/security/permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,8 +45,8 @@ const planSchema = z.object({
 type PlanFormData = z.infer<typeof planSchema>;
 
 export const PlansPage: React.FC = () => {
-  const { hasRole } = useAuth();
-  const isAdmin = hasRole('ADMIN');
+  const { checkPolicy } = useAuth();
+  const isAdmin = checkPolicy({ permissions: [PERMISSIONS.PLANS_MANAGE], roles: ['ADMIN'] });
   const queryClient = useQueryClient();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);

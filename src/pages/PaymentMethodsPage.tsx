@@ -7,6 +7,7 @@ import {
   UpdatePaymentMethodRequest,
 } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { PERMISSIONS } from '@/security/permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,8 +32,11 @@ const paymentMethodSchema = z.object({
 type PaymentMethodFormData = z.infer<typeof paymentMethodSchema>;
 
 export const PaymentMethodsPage: React.FC = () => {
-  const { hasRole } = useAuth();
-  const isAdmin = hasRole('ADMIN');
+  const { checkPolicy } = useAuth();
+  const isAdmin = checkPolicy({
+    permissions: [PERMISSIONS.PAYMENT_METHODS_MANAGE],
+    roles: ['ADMIN'],
+  });
   const queryClient = useQueryClient();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);

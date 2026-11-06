@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { membershipService } from '@/services/membership.service';
 import { BenefitResponse, CreateBenefitRequest, UpdateBenefitRequest } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { PERMISSIONS } from '@/security/permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,8 +28,8 @@ const benefitSchema = z.object({
 type BenefitFormData = z.infer<typeof benefitSchema>;
 
 export const BenefitsPage: React.FC = () => {
-  const { hasRole } = useAuth();
-  const isAdmin = hasRole('ADMIN');
+  const { checkPolicy } = useAuth();
+  const isAdmin = checkPolicy({ permissions: [PERMISSIONS.BENEFITS_MANAGE], roles: ['ADMIN'] });
   const queryClient = useQueryClient();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -223,7 +224,7 @@ export const BenefitsPage: React.FC = () => {
           <div>
             <Label>Descripción Detallada</Label>
             <Textarea
-              placeholder="Explica qué incluye este beneficio y cómo puede disfrutarlo el socio..."
+              placeholder="Explica qué incluye este beneficio y cómo puede disfrutarlo el cliente..."
               {...createForm.register('description')}
             />
           </div>

@@ -47,6 +47,7 @@ export const ReportsPage: React.FC = () => {
   const { data: branchesData } = useQuery({
     queryKey: ['branches-select-reports'],
     queryFn: () => branchService.getAll({ page: 0, size: 50 }),
+    enabled: !isClient,
   });
 
   const { data: invoicesData } = useQuery({
@@ -55,6 +56,7 @@ export const ReportsPage: React.FC = () => {
       isAdminOrRecep
         ? invoiceService.getAll({ page: 0, size: 50 })
         : invoiceService.getMy().then((data) => ({ content: data })),
+    enabled: isAdminOrRecep || isClient,
   });
 
   const handleDownloadInvoicePdf = async () => {
@@ -77,7 +79,7 @@ export const ReportsPage: React.FC = () => {
   const handleDownloadCarnetPdf = async () => {
     const memberId = isClient ? user?.id : selectedMemberId;
     if (!memberId) {
-      toast.error('Por favor selecciona un socio');
+      toast.error('Por favor selecciona un cliente');
       return;
     }
     try {
@@ -95,7 +97,7 @@ export const ReportsPage: React.FC = () => {
   const handleSendCarnetEmail = async () => {
     const memberId = isClient ? user?.id : selectedMemberId;
     if (!memberId) {
-      toast.error('Por favor selecciona un socio');
+      toast.error('Por favor selecciona un cliente');
       return;
     }
     try {
@@ -141,55 +143,61 @@ export const ReportsPage: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card className="flex flex-col justify-between border-slate-800 bg-slate-900/40">
-          <div>
-            <CardHeader>
-              <div className="h-12 w-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-2">
-                <FileText className="h-6 w-6" />
-              </div>
-              <CardTitle className="text-lg">Facturas y Comprobantes</CardTitle>
-              <CardDescription>
-                Comprobante fiscal con resumen de ítems, estado de cobro y código QR de autenticidad.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label>Seleccionar Folio de Factura</Label>
-                <Select
-                  value={selectedInvoiceId}
-                  onChange={(e) => setSelectedInvoiceId(e.target.value)}
-                >
-                  <option value="">Selecciona una factura...</option>
-                  {invoices.map((inv) => (
-                    <option key={inv.id} value={inv.id}>
-                      #{inv.id} - {inv.memberName} (Q{inv.amount}) [{inv.status}]
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div>
-                <Label>O escribe el ID / Folio</Label>
-                <Input
-                  type="number"
-                  placeholder="ej. 1"
-                  value={selectedInvoiceId}
-                  onChange={(e) => setSelectedInvoiceId(e.target.value)}
-                />
-              </div>
-            </CardContent>
-          </div>
-          <div className="p-6 pt-0">
-            <Button
-              onClick={handleDownloadInvoicePdf}
-              isLoading={downloadingInvoice}
-              disabled={!selectedInvoiceId}
-              className="w-full gap-2"
-            >
-              <Download className="h-4 w-4" />
-              <span>Descargar Factura PDF</span>
-            </Button>
-          </div>
-        </Card>
+        {(isAdminOrRecep || isClient) && (
+          <Card className="flex flex-col justify-between border-slate-800 bg-slate-900/40">
+            <div>
+              <CardHeader>
+                <div className="h-12 w-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-2">
+                  <FileText className="h-6 w-6" />
+                </div>
+                <CardTitle className="text-lg">
+                  {isClient ? 'Mis Facturas PDF' : 'Facturas y Comprobantes'}
+                </CardTitle>
+                <CardDescription>
+                  Comprobante fiscal con resumen de ítems, estado de cobro y código QR de autenticidad.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>Seleccionar Folio de Factura</Label>
+                  <Select
+                    value={selectedInvoiceId}
+                    onChange={(e) => setSelectedInvoiceId(e.target.value)}
+                  >
+                    <option value="">Selecciona una factura...</option>
+                    {invoices.map((inv) => (
+                      <option key={inv.id} value={inv.id}>
+                        #{inv.id} - {inv.memberName} (Q{inv.amount}) [{inv.status}]
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                {isAdminOrRecep && (
+                  <div>
+                    <Label>O escribe el ID / Folio</Label>
+                    <Input
+                      type="number"
+                      placeholder="ej. 1"
+                      value={selectedInvoiceId}
+                      onChange={(e) => setSelectedInvoiceId(e.target.value)}
+                    />
+                  </div>
+                )}
+              </CardContent>
+            </div>
+            <div className="p-6 pt-0">
+              <Button
+                onClick={handleDownloadInvoicePdf}
+                isLoading={downloadingInvoice}
+                disabled={!selectedInvoiceId}
+                className="w-full gap-2"
+              >
+                <Download className="h-4 w-4" />
+                <span>Descargar Factura PDF</span>
+              </Button>
+            </div>
+          </Card>
+        )}
 
         <Card className="flex flex-col justify-between border-slate-800 bg-slate-900/40">
           <div>
@@ -197,7 +205,7 @@ export const ReportsPage: React.FC = () => {
               <div className="h-12 w-12 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center mb-2">
                 <QrCode className="h-6 w-6" />
               </div>
-              <CardTitle className="text-lg">Carnet Digital de Socio</CardTitle>
+              <CardTitle className="text-lg">Carnet Digital de Cliente</CardTitle>
               <CardDescription>
                 Credencial oficial de membresía con fotografía, datos personales y código QR para ingreso y torniquetes.
               </CardDescription>
@@ -205,12 +213,12 @@ export const ReportsPage: React.FC = () => {
             <CardContent className="space-y-4">
               {!isClient ? (
                 <div>
-                  <Label>Seleccionar Socio</Label>
+                  <Label>Seleccionar Cliente</Label>
                   <Select
                     value={selectedMemberId}
                     onChange={(e) => setSelectedMemberId(e.target.value)}
                   >
-                    <option value="">Selecciona socio...</option>
+                    <option value="">Selecciona cliente...</option>
                     {members.map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.firstName} {m.lastName} (@{m.username})
@@ -251,63 +259,65 @@ export const ReportsPage: React.FC = () => {
           </div>
         </Card>
 
-        <Card className="flex flex-col justify-between border-slate-800 bg-slate-900/40">
-          <div>
-            <CardHeader>
-              <div className="h-12 w-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center mb-2">
-                <Clock className="h-6 w-6" />
-              </div>
-              <CardTitle className="text-lg">Reporte de Asistencias</CardTitle>
-              <CardDescription>
-                Informe detallado de flujos de socios, horarios de check-in / check-out y sucursales visitadas.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {isAdminOrRecep && (
-                <div>
-                  <Label>Filtrar por Sucursal</Label>
-                  <Select
-                    value={selectedAttendanceBranch}
-                    onChange={(e) => setSelectedAttendanceBranch(e.target.value)}
-                  >
-                    <option value="">Todas las sucursales</option>
-                    {branches.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </Select>
+        {!isClient && (
+          <Card className="flex flex-col justify-between border-slate-800 bg-slate-900/40">
+            <div>
+              <CardHeader>
+                <div className="h-12 w-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center mb-2">
+                  <Clock className="h-6 w-6" />
                 </div>
-              )}
-              {isAdminOrRecep && (
-                <div>
-                  <Label>Filtrar por Socio</Label>
-                  <Select
-                    value={selectedAttendanceMember}
-                    onChange={(e) => setSelectedAttendanceMember(e.target.value)}
-                  >
-                    <option value="">Todos los socios</option>
-                    {members.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.firstName} {m.lastName}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              )}
-            </CardContent>
-          </div>
-          <div className="p-6 pt-0">
-            <Button
-              onClick={handleDownloadAttendancePdf}
-              isLoading={downloadingAttendance}
-              className="w-full gap-2"
-            >
-              <Download className="h-4 w-4" />
-              <span>Exportar Asistencias PDF</span>
-            </Button>
-          </div>
-        </Card>
+                <CardTitle className="text-lg">Reporte de Asistencias</CardTitle>
+                <CardDescription>
+                  Informe detallado de flujos de clientes, horarios de check-in / check-out y sucursales visitadas.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isAdminOrRecep && (
+                  <div>
+                    <Label>Filtrar por Sucursal</Label>
+                    <Select
+                      value={selectedAttendanceBranch}
+                      onChange={(e) => setSelectedAttendanceBranch(e.target.value)}
+                    >
+                      <option value="">Todas las sucursales</option>
+                      {branches.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                )}
+                {isAdminOrRecep && (
+                  <div>
+                    <Label>Filtrar por Cliente</Label>
+                    <Select
+                      value={selectedAttendanceMember}
+                      onChange={(e) => setSelectedAttendanceMember(e.target.value)}
+                    >
+                      <option value="">Todos los clientes</option>
+                      {members.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.firstName} {m.lastName}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                )}
+              </CardContent>
+            </div>
+            <div className="p-6 pt-0">
+              <Button
+                onClick={handleDownloadAttendancePdf}
+                isLoading={downloadingAttendance}
+                className="w-full gap-2"
+              >
+                <Download className="h-4 w-4" />
+                <span>Exportar Asistencias PDF</span>
+              </Button>
+            </div>
+          </Card>
+        )}
       </div>
     </div>
   );

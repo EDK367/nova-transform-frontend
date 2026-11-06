@@ -15,6 +15,7 @@ import {
   MembershipStatus,
 } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { PERMISSIONS } from '@/security/permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -46,7 +47,7 @@ import {
 } from 'lucide-react';
 
 const subscribeSchema = z.object({
-  memberId: z.string().min(1, 'Selecciona un socio'),
+  memberId: z.string().min(1, 'Selecciona un cliente'),
   planId: z.coerce.number().min(1, 'Selecciona un plan'),
   startDate: z.string().optional(),
 });
@@ -86,9 +87,15 @@ const quickMemberSchema = z.object({
 type QuickMemberFormData = z.infer<typeof quickMemberSchema>;
 
 export const MembershipsPage: React.FC = () => {
-  const { user, hasRole } = useAuth();
-  const isAdminOrRecep = hasRole('ADMIN', 'RECEPCIONISTA');
-  const isAdmin = hasRole('ADMIN');
+  const { user, hasRole, checkPolicy } = useAuth();
+  const isAdminOrRecep = checkPolicy({
+    permissions: [PERMISSIONS.MEMBERSHIPS_MANAGE],
+    roles: ['ADMIN', 'RECEPCIONISTA'],
+  });
+  const isAdmin = checkPolicy({
+    permissions: [PERMISSIONS.MEMBERSHIPS_MANAGE],
+    roles: ['ADMIN'],
+  });
   const isClient = hasRole('CLIENTE');
   const queryClient = useQueryClient();
 
@@ -193,7 +200,7 @@ export const MembershipsPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['memberships'] });
       setIsSubscribeOpen(false);
       subscribeForm.reset();
-      toast.success('Socio suscrito a la membresía exitosamente');
+      toast.success('Cliente suscrito a la membresía exitosamente');
     },
     onError: (err: any) => {
       const msg = err.response?.data?.message || err.response?.data?.error || 'Error al suscribir la membresía';
@@ -294,7 +301,7 @@ export const MembershipsPage: React.FC = () => {
             <div className="relative flex-1 w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por socio, plan o correo..."
+                placeholder="Buscar por cliente, plan o correo..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9"
@@ -346,7 +353,7 @@ export const MembershipsPage: React.FC = () => {
                 <thead>
                   <tr className="border-b border-border bg-secondary/30 text-xs text-muted-foreground uppercase font-semibold">
                     <th className="py-3 px-4">Folio</th>
-                    <th className="py-3 px-4">Socio</th>
+                    <th className="py-3 px-4">Cliente</th>
                     <th className="py-3 px-4">Plan Actual</th>
                     <th className="py-3 px-4">Precio / Tarifa</th>
                     <th className="py-3 px-4">Fecha Inicio</th>
@@ -488,7 +495,7 @@ export const MembershipsPage: React.FC = () => {
         isOpen={isSubscribeOpen}
         onClose={() => setIsSubscribeOpen(false)}
         title="Nueva Suscripción a Membresía"
-        description="Inscribe a un socio existente en un plan de entrenamiento."
+        description="Inscribe a un cliente existente en un plan de entrenamiento."
       >
         <form
           onSubmit={subscribeForm.handleSubmit((d) => subscribeMutation.mutate(d))}
@@ -496,7 +503,7 @@ export const MembershipsPage: React.FC = () => {
         >
           <div>
             <div className="flex items-center justify-between mb-1">
-              <Label required>Socio / Cliente</Label>
+              <Label required>Cliente</Label>
               <button
                 type="button"
                 onClick={() => setIsQuickMemberOpen(true)}
@@ -509,7 +516,7 @@ export const MembershipsPage: React.FC = () => {
               error={subscribeForm.formState.errors.memberId?.message}
               {...subscribeForm.register('memberId')}
             >
-              <option value="">Selecciona un socio...</option>
+              <option value="">Selecciona un cliente...</option>
               {membersList?.content?.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.firstName} {m.lastName} (@{m.username})
@@ -557,7 +564,7 @@ export const MembershipsPage: React.FC = () => {
       <Modal
         isOpen={isQuickMemberOpen}
         onClose={() => setIsQuickMemberOpen(false)}
-        title="Registrar Nuevo Cliente / Socio"
+        title="Registrar Nuevo Cliente"
         description="Registra al cliente rápidamente para luego asignarle la membresía."
       >
         <form
@@ -652,7 +659,7 @@ export const MembershipsPage: React.FC = () => {
         isOpen={!!changingPlanMembership}
         onClose={() => setChangingPlanMembership(null)}
         title="Cambiar Plan de Membresía"
-        description={`Socio: ${changingPlanMembership?.memberName}. Selecciona el nuevo paquete a asignar.`}
+        description={`Cliente: ${changingPlanMembership?.memberName}. Selecciona el nuevo paquete a asignar.`}
       >
         <form
           onSubmit={changePlanForm.handleSubmit((d) =>
@@ -675,7 +682,7 @@ export const MembershipsPage: React.FC = () => {
           <div>
             <Label>Motivo del Cambio</Label>
             <Input
-              placeholder="ej. Ascenso a plan Black VIP por solicitud del socio"
+              placeholder="ej. Ascenso a plan Black VIP por solicitud del cliente"
               {...changePlanForm.register('reason')}
             />
           </div>
@@ -770,7 +777,7 @@ export const MembershipsPage: React.FC = () => {
         isOpen={!!cancellingMembership}
         onClose={() => setCancellingMembership(null)}
         title="Cancelar Suscripción de Membresía"
-        description="Esta acción dará por terminada la membresía del socio."
+        description="Esta acción dará por terminada la membresía del cliente."
       >
         <form
           onSubmit={cancelForm.handleSubmit((d) =>

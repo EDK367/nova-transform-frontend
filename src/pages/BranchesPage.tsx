@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { branchService } from '@/services/branch.service';
 import { BranchResponse, CreateBranchRequest, UpdateBranchRequest } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { PERMISSIONS } from '@/security/permissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -40,8 +41,8 @@ const branchSchema = z.object({
 type BranchFormData = z.infer<typeof branchSchema>;
 
 export const BranchesPage: React.FC = () => {
-  const { hasRole } = useAuth();
-  const isAdmin = hasRole('ADMIN');
+  const { checkPolicy } = useAuth();
+  const isAdmin = checkPolicy({ permissions: [PERMISSIONS.BRANCHES_MANAGE], roles: ['ADMIN'] });
   const queryClient = useQueryClient();
 
   const [page, setPage] = useState(0);

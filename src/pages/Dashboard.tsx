@@ -58,39 +58,27 @@ export const Dashboard: React.FC = () => {
     enabled: true,
   });
 
-  // Attendance: admin/recep get paginated, client gets array — use two separate queries
+  // Attendance: admin/recep/trainer get paginated, client gets array — use two separate queries
   const { data: attendancesPageData } = useQuery<PageResponse<AttendanceResponse>>({
     queryKey: ['dashboard', 'attendances', 'paged'],
     queryFn: () => attendanceService.getAll({ page: 0, size: 20 }),
-    enabled: isAdminOrRecep,
+    enabled: !isClient,
   });
 
   const { data: myAttendancesData } = useQuery<AttendanceResponse[]>({
     queryKey: ['dashboard', 'attendances', 'my'],
     queryFn: () => attendanceService.getMy(),
-    enabled: !isAdminOrRecep,
+    enabled: isClient,
   });
 
-  // Invoices: admin/recep get paginated, client gets array — two separate queries
+  // Invoices: only for admin/recep
   const { data: invoicesPageData, isLoading: loadingInvoices } = useQuery<PageResponse<InvoiceResponse>>({
     queryKey: ['dashboard', 'invoices', 'paged'],
     queryFn: () => invoiceService.getAll({ page: 0, size: 20 }),
     enabled: isAdminOrRecep,
   });
 
-  const { data: myInvoicesData } = useQuery<InvoiceResponse[]>({
-    queryKey: ['dashboard', 'invoices', 'my'],
-    queryFn: () => invoiceService.getMy(),
-    enabled: isClient,
-  });
-
   // Client specific queries
-  const { data: myMemberships } = useQuery({
-    queryKey: ['dashboard', 'myMemberships'],
-    queryFn: () => membershipService.getMy(),
-    enabled: isClient,
-  });
-
   const { data: myEnrollments } = useQuery({
     queryKey: ['dashboard', 'myEnrollments'],
     queryFn: () => classService.getMyEnrollments(),
@@ -110,13 +98,13 @@ export const Dashboard: React.FC = () => {
   const scheduledClasses = classList.filter((c) => c.status === 'SCHEDULED').length;
   const inProgressClasses = classList.filter((c) => c.status === 'IN_PROGRESS').length;
 
-  const attendanceCount = isAdminOrRecep
+  const attendanceCount = !isClient
     ? (attendancesPageData?.totalElements ?? 0)
     : (myAttendancesData?.length ?? 0);
 
   const invoiceList: InvoiceResponse[] = isAdminOrRecep
     ? (invoicesPageData?.content ?? [])
-    : (myInvoicesData ?? []);
+    : [];
 
   const totalCollected = invoiceList
     .filter((inv) => inv.status === 'PAID')
@@ -158,8 +146,8 @@ export const Dashboard: React.FC = () => {
               {isAdminOrRecep
                 ? 'Monitorea el rendimiento operativo, asistencias y membresías del gimnasio.'
                 : isClient
-                ? 'Accede al estado de tu membresía, clases inscritas y asistencias.'
-                : 'Supervisa tus clases asignadas y el avance de los socios.'}
+                ? 'Accede al resumen de tus clases inscritas, entrenamientos y asistencias.'
+                : 'Supervisa tus clases asignadas y el avance de los clientes.'}
             </p>
           </div>
 
@@ -175,9 +163,9 @@ export const Dashboard: React.FC = () => {
       {isAdminOrRecep ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard
-            title="Total de Socios"
+            title="Total de Clientes"
             value={loadingMembers ? '...' : totalMembers}
-            subtitle="Socios registrados en el sistema"
+            subtitle="Clientes registrados en el sistema"
             icon={Users}
             color="emerald"
           />
@@ -204,14 +192,7 @@ export const Dashboard: React.FC = () => {
           />
         </div>
       ) : isClient ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <StatsCard
-            title="Mis Membresías"
-            value={myMemberships?.length ?? 0}
-            subtitle={myMemberships?.[0] ? `Vence: ${formatDate(myMemberships[0].dueDate)}` : 'Sin membresía activa'}
-            icon={Award}
-            color="emerald"
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <StatsCard
             title="Mis Inscripciones"
             value={myEnrollments?.length ?? 0}
@@ -358,72 +339,72 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Recent Activity Table */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>
-                {isClient ? 'Mis Facturas y Pagos' : 'Facturas y Movimientos Recientes'}
-              </CardTitle>
-              <CardDescription>
-                Últimos registros financieros consultados del backend
-              </CardDescription>
+      {/* Recent Activity Table (Solo Administración y Recepción) */}
+      {isAdminOrRecep && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Facturas y Movimientos Recientes</CardTitle>
+                <CardDescription>
+                  Últimos registros financieros consultados del backend
+                </CardDescription>
+              </div>
+              <StatusBadge status="ACTIVE" />
             </div>
-            <StatusBadge status="ACTIVE" />
-          </div>
-        </CardHeader>
-        <CardContent>
-          {invoiceList.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-border text-xs text-muted-foreground uppercase font-semibold">
-                    <th className="py-3 px-4">Folio</th>
-                    <th className="py-3 px-4">Socio</th>
-                    <th className="py-3 px-4">Emisión</th>
-                    <th className="py-3 px-4">Vencimiento</th>
-                    <th className="py-3 px-4">Monto</th>
-                    <th className="py-3 px-4">Pagado</th>
-                    <th className="py-3 px-4">Estado</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/60">
-                  {invoiceList.slice(0, 5).map((inv) => (
-                    <tr key={inv.id} className="hover:bg-secondary/40 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-medium text-foreground">
-                        #{inv.id}
-                      </td>
-                      <td className="py-3.5 px-4 font-medium text-foreground">
-                        {inv.memberName || 'N/A'}
-                      </td>
-                      <td className="py-3.5 px-4 text-muted-foreground">
-                        {formatDate(inv.issueDate)}
-                      </td>
-                      <td className="py-3.5 px-4 text-muted-foreground">
-                        {formatDate(inv.dueDate)}
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-foreground">
-                        {formatCurrency(inv.amount)}
-                      </td>
-                      <td className="py-3.5 px-4 text-emerald-400 font-semibold">
-                        {formatCurrency(inv.amountPaid)}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <StatusBadge status={inv.status} />
-                      </td>
+          </CardHeader>
+          <CardContent>
+            {invoiceList.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-xs text-muted-foreground uppercase font-semibold">
+                      <th className="py-3 px-4">Folio</th>
+                      <th className="py-3 px-4">Cliente</th>
+                      <th className="py-3 px-4">Emisión</th>
+                      <th className="py-3 px-4">Vencimiento</th>
+                      <th className="py-3 px-4">Monto</th>
+                      <th className="py-3 px-4">Pagado</th>
+                      <th className="py-3 px-4">Estado</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="py-12 text-center text-sm text-muted-foreground">
-              No hay facturas registradas en la base de datos en este momento.
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  </thead>
+                  <tbody className="divide-y divide-border/60">
+                    {invoiceList.slice(0, 5).map((inv) => (
+                      <tr key={inv.id} className="hover:bg-secondary/40 transition-colors">
+                        <td className="py-3.5 px-4 font-mono font-medium text-foreground">
+                          #{inv.id}
+                        </td>
+                        <td className="py-3.5 px-4 font-medium text-foreground">
+                          {inv.memberName || 'N/A'}
+                        </td>
+                        <td className="py-3.5 px-4 text-muted-foreground">
+                          {formatDate(inv.issueDate)}
+                        </td>
+                        <td className="py-3.5 px-4 text-muted-foreground">
+                          {formatDate(inv.dueDate)}
+                        </td>
+                        <td className="py-3.5 px-4 font-semibold text-foreground">
+                          {formatCurrency(inv.amount)}
+                        </td>
+                        <td className="py-3.5 px-4 text-emerald-400 font-semibold">
+                          {formatCurrency(inv.amountPaid)}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <StatusBadge status={inv.status} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="py-12 text-center text-sm text-muted-foreground">
+                No hay facturas registradas en la base de datos en este momento.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
